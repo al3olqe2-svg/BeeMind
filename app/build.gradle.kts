@@ -47,7 +47,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
-    lint { abortOnError = true; warningsAsErrors = true }
+    lint {
+        abortOnError = true
+        warningsAsErrors = true
+        // Updates are reviewed together against the pinned compatibility matrix.
+        // Keep API, privacy, accessibility and all other correctness checks enabled.
+        disable += setOf("GradleDependency", "AndroidGradlePluginVersion")
+    }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
