@@ -1,0 +1,87 @@
+name: Android Stage 0
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BEEMIND_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare persistent signing or explicitly mark temporary build
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BEEMIND_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.BEEMIND_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BEEMIND_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BEEMIND_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          count=0
+          for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -n "${!name}" ]]; then count=$((count + 1)); fi
+          done
+          if [[ "$count" == 4 ]]; then
+            umask 077
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/beemind-test.jks"
+            {
+              echo "BEEMIND_KEYSTORE_PATH=$RUNNER_TEMP/beemind-test.jks"
+              echo "BEEMIND_STORE_PASSWORD=$STORE_PASSWORD"
+              echo "BEEMIND_KEY_ALIAS=$KEY_ALIAS"
+              echo "BEEMIND_KEY_PASSWORD=$KEY_PASSWORD"
+              echo 'SIGNING_LABEL=persistent-test'
+            } >> "$GITHUB_ENV"
+          elif [[ "$count" == 0 ]]; then
+            echo 'SIGNING_LABEL=TEMPORARY-NON-UPGRADE-GUARANTEED' >> "$GITHUB_ENV"
+            echo '::warning::No signing secrets. This APK is temporary; future in-place updates are NOT guaranteed.'
+          else
+            echo '::error::All four BeeMind signing secrets must be set together.'
+            exit 1
+          fi
+      - name: Build, unit tests and lint
+        run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+      - name: Prepare verified APK artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          name="BeeMind-0.1.0-build-${BEEMIND_VERSION_CODE}-${SIGNING_LABEL}"
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$name.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "dist/$name.apk" > "dist/$name-certificate.txt"
+          (cd dist && sha256sum "$name.apk" > "$name.apk.sha256")
+          echo "ARTIFACT_NAME=$name" >> "$GITHUB_ENV"
+          {
+            echo "### BeeMind 0.1.0 / build $BEEMIND_VERSION_CODE"
+            echo "Signing: $SIGNING_LABEL"
+            echo "Application ID: com.beemind.personal"
+            echo 'APK signature verified; unit tests and lint passed.'
+            if [[ "$SIGNING_LABEL" == TEMPORARY* ]]; then
+              echo '**Temporary APK: future updates over this install are NOT guaranteed.**'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/beemind-test.jks"

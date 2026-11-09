@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">BeeMind</string>
+    <string name="welcome_eyebrow">بداية مساحة خاصة</string>
+    <string name="welcome_title">لكل فكرة مساحة.</string>
+    <string name="welcome_body">هنا تبدأ BeeMind. مساحة هادئة لأفكارك، تنمو معك خطوة بخطوة.</string>
+    <string name="foundation_label">النسخة التأسيسية · ٠</string>
+    <string name="privacy_label">على جهازك، دون اتصال بالإنترنت</string>
+</resources>
