@@ -4,6 +4,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import com.beemind.personal.ui.theme.BeeDesign
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -37,6 +39,7 @@ class NativeVisualProbeTest {
                 BeeMindTheme { Box(Modifier.fillMaxSize()) {
                     when (component) {
                         "empty" -> Unit
+                        "background" -> Box(Modifier.fillMaxSize().background(BeeDesign.atmosphere))
                         "rainbow" -> RainbowLine()
                         "fab" -> NeonAdd { }
                         "text" -> Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium)
