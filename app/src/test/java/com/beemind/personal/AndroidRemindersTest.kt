@@ -22,6 +22,16 @@ class AndroidRemindersTest {
     private val app get() = ApplicationProvider.getApplicationContext<BeeMindApplication>()
     private fun reminder(gen: String = "g1") = ReminderEntity("note", System.currentTimeMillis() + 300_000,
         "SCHEDULED", gen, "PENDING", null, "PENDING")
+    @Test fun restrictedBackgroundIsReportedSeparatelyFromExactPermission() {
+        val activity = app.getSystemService(ActivityManager::class.java)
+        shadowOf(activity).setBackgroundRestricted(true)
+        org.robolectric.shadows.ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        val scheduler = AndroidReminderScheduler(app)
+        assertTrue(scheduler.exactAllowed())
+        assertTrue(scheduler.backgroundRestricted())
+        shadowOf(activity).setBackgroundRestricted(false)
+        assertFalse(scheduler.backgroundRestricted())
+    }
     @Test fun exactDeniedUsesInexactAndGenerationIntentsDoNotCollide() {
         val manager = app.getSystemService(AlarmManager::class.java)
         org.robolectric.shadows.ShadowAlarmManager.setCanScheduleExactAlarms(false)
@@ -54,6 +64,7 @@ class AndroidRemindersTest {
         assertNotEquals(intents[0].data, intents[1].data)
         assertTrue(intents.all { it.component!!.className.endsWith("ReminderActionReceiver") })
         assertTrue(n.actions.all { it.actionIntent.isImmutable })
+        assertTrue(intents.all { it.flags and Intent.FLAG_RECEIVER_FOREGROUND != 0 })
         assertEquals(MainActivity::class.java.name, shadowOf(n.contentIntent).savedIntent.component!!.className)
         val channel = manager.getNotificationChannel(AndroidReminderNotifier.CHANNEL)
         channel.importance = NotificationManager.IMPORTANCE_NONE

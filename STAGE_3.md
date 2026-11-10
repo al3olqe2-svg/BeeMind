@@ -148,3 +148,58 @@ Connected instrumentation, physical notification timing, real reboot/Doze/Force
 Stop behavior, TalkBack/keyboard, and installation over the owner's signed APK
 were **not performed**. GitHub workflow/artifact evidence is reported separately
 in the PR and delivery report; a local build alone is not CI or phone acceptance.
+
+
+## Critical reliability investigation — owner phone rejection
+
+Build 13 is **not accepted**. Owner reports relative/calendar background delivery
+and Snooze failed, while notification opening and Done worked. Do not infer phone
+success from the earlier 52 tests.
+
+Review confirmed explicit immutable PendingIntents, manifest receivers and saved
+Room generations were present. Alarm delivery is implemented independently of
+Activity/ViewModel. Existing tests manually sent broadcasts; they did not establish
+native AlarmManager delivery with the process absent. Also, foreground recovery
+could post overdue items with the same generic delivered label, obscuring whether
+the alarm receiver ever ran. No device log or exact OEM/permission configuration
+has yet established a unique cause for the owner's failure.
+
+The repair adds foreground-priority alarm/action broadcasts, a short partial CPU
+wake lease acquired before asynchronous dispatch (10-second hard bound, released
+on success/error), and explicit Android background-restriction detection separately
+from notification/exact access. The lease is especially relevant to notification
+actions, which do not inherit AlarmManager's wake lock. Stock Android's pending
+alarm broadcast already has a system wake lock: absence of an additional app lock
+alone is **not claimed as a proven explanation for every original alarm failure**.
+There is no service, unrestricted battery exemption or persistent wake lock.
+
+Local Room operational metadata records current-generation ALARM versus RECOVERY
+delivery and Snooze scheduling mode. It contains only a UUID, event and time;
+no note text or analytics. Recovery-only delivery is visibly identified, rather
+than being presented as proof of background success. Receiver logs preserve the
+exception type without private text. This uses the existing metadata table, so
+Room remains version 4 and all migrations/notes/traits/creation order are unchanged.
+
+A new disposable-emulator harness targets API 29 and 34: seed synthetic reminders,
+initially schedule them, close the Activity, kill the ordinary process (not Force
+Stop), turn off the screen, inspect persisted delivery without opening the app,
+press real notification actions, and wait an actual ten minutes for Snooze in
+forced Doze. It keeps verification outside Instrumentation because Android
+force-stops the target when Instrumentation finishes. Reports include alarms,
+notification state and logs from synthetic data only. Harness failures are not
+counted as successful app delivery; final run results are recorded in the PR.
+
+### إعادة الاختبار على الهاتف — ثلاث خطوات
+
+1. فعّل إشعارات BeeMind، وأتح التنبيه الدقيق إن كان Android يعرض إذنه. أنشئ
+   تذكيرًا بعد 5 دقائق وآخر بتاريخ اليوم ووقت قريب محدد، احفظهما ثم اذهب للشاشة
+   الرئيسية واقفل الهاتف دون «فرض الإيقاف». سجّل وصول كل إشعار قبل فتح BeeMind.
+2. من الإشعار اضغط «تأجيل 10 دقائق»، واترك BeeMind مغلقًا حتى يصل التنبيه
+   الجديد. اضغط «إنجاز»، ثم افتح الملاحظة وتأكد أنها باقية وحالتها منجزة.
+3. جرّب تعديل موعد وإزالة تذكير قبل حلوله؛ راقب غياب التنبيهات القديمة والمكررة
+   وسلامة Glow/Anger والمسودات. عند أي إخفاق، افتح التفاصيل وأرسل عبارة مصدر
+   التسليم/القيود الظاهرة مع طراز الهاتف وإصدار Android والأوقات الفعلية.
+
+Signing is still temporary and update compatibility is unverified. Do not
+uninstall an existing installation containing important local notes to bypass a
+signature mismatch. Phone acceptance remains pending, PR #2 must stay unmerged.

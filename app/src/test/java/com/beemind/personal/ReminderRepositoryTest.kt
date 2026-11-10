@@ -176,6 +176,19 @@ class ReminderRepositoryTest {
         assertEquals(r.dueAt + 600_000, row().dueAt)
     }
 
+    @Test fun alarmAndResumeRecoveryHaveDistinctDurableDeliveryEvidence() = runBlocking {
+        create(); due()
+        val key = com.beemind.personal.notifications.ReminderDiagnostics.key("a")
+        assertTrue(db.foundationDao().observeValue(key).first()!!.contains("|ALARM_DELIVERED|"))
+        create("recovery")
+        clock.now += 400_000
+        coordinator.reconcile()
+        val recovered = db.foundationDao().observeValue(com.beemind.personal.notifications.ReminderDiagnostics.key("recovery")).first()!!
+        assertTrue(recovered.contains("|RECOVERY_DELIVERED|"))
+        repository.delete("a")
+        assertNull(db.foundationDao().observeValue(key).first())
+    }
+
     private class MutableClock(var now: Long = 1_800_000_000_000) : Clock() {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId): Clock = this

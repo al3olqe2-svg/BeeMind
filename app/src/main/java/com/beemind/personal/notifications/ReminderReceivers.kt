@@ -10,12 +10,18 @@ import kotlinx.coroutines.withTimeout
 
 abstract class ReminderReceiver : BroadcastReceiver() {
     final override fun onReceive(context: Context, intent: Intent) {
+        // Acquire synchronously, before returning control to the Android broadcast dispatcher.
+        val lease = ReminderWakeLease(context)
         val pending = goAsync()
         val app = context.applicationContext as BeeMindApplication
         app.reminderScope.launch {
             try { withTimeout(8_000) { receive(app, intent) } }
-            catch (_: Exception) { Log.w("BeeMindReminder", "Reminder work interrupted; Room state retained for recovery") }
-            finally { pending.finish() }
+            catch (e: Exception) {
+                // No note text/URI is logged. Preserve the error type instead of hiding the cause.
+                Log.w("BeeMindReminder", "${intent.action}: ${e.javaClass.simpleName}; Room intent retained")
+            } finally {
+                try { lease.close() } finally { pending.finish() }
+            }
         }
     }
     protected abstract suspend fun receive(app: BeeMindApplication, intent: Intent)

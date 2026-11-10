@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -144,6 +145,7 @@ fun ReminderPermissions() {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
     val notifications = remember(tick) { app.reminderNotifier.allowed() }
     val exact = remember(tick) { app.reminderScheduler.exactAllowed() }
+    val backgroundRestricted = remember(tick) { app.reminderScheduler.backgroundRestricted() }
     fun settings(intent: Intent) {
         try { context.startActivity(intent) } catch (_: android.content.ActivityNotFoundException) { error = true }
     }
@@ -156,6 +158,12 @@ fun ReminderPermissions() {
         TextButton(onClick = { settings(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
             .putExtra(Settings.EXTRA_CHANNEL_ID, com.beemind.personal.notifications.AndroidReminderNotifier.CHANNEL)) }) { Text("إعدادات إشعارات BeeMind") }
+    }
+    if (backgroundRestricted) {
+        Text("Android يقيّد نشاط BeeMind في الخلفية. قد يمنع الإشعار حتى تفتح التطبيق؛ إذن التنبيه الدقيق وحده لا يرفع هذا القيد.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        TextButton(onClick = { settings(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            "package:${context.packageName}".toUri())) }) { Text("مراجعة قيود الخلفية في إعدادات التطبيق") }
     }
     if (!exact) {
         Text("التنبيه الدقيق غير مسموح. سيُستخدم تنبيه تقريبي قد يتأخر حسب قيود Android والبطارية.", style = MaterialTheme.typography.bodySmall)
@@ -170,6 +178,10 @@ fun ReminderPermissions() {
 fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit) {
     if (reminder == null || reminder.status == "CANCELLED") return
     val app = LocalContext.current.applicationContext as BeeMindApplication
+    val traceKey = com.beemind.personal.notifications.ReminderDiagnostics.key(reminder.noteId)
+    val traceFlow = remember(app, traceKey) { app.database.foundationDao().observeValue(traceKey) }
+    val traceValue by traceFlow.collectAsStateWithLifecycle(initialValue = null)
+    val trace = traceValue?.split('|')?.takeIf { it.size == 3 && it[0] == reminder.generation }
     val scope = app.reminderScope
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
@@ -199,6 +211,14 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit) {
                 else -> "مجدول"
             }
             Text(status, style = MaterialTheme.typography.bodySmall)
+            when (trace?.get(1)) {
+                "RECOVERY_DELIVERED" -> Text("وصل متأخرًا عند الاستعادة؛ وصول إنذار الخلفية لم يُؤكد لهذا الموعد.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                "ALARM_DELIVERED" -> Text("تم التسليم عبر إنذار Android.", style = MaterialTheme.typography.bodySmall)
+                "ALARM_RECEIVED" -> Text("استُلم إنذار Android؛ لم يتأكد اكتمال التسليم بعد.", style = MaterialTheme.typography.bodySmall)
+                "SNOOZE_EXACT" -> Text("أعاد التأجيل جدولة إنذار دقيق لدى Android.", style = MaterialTheme.typography.bodySmall)
+                "SNOOZE_INEXACT" -> Text("أعاد التأجيل جدولة إنذار تقريبي قد يتأخر.", style = MaterialTheme.typography.bodySmall)
+            }
             if (reminder.active && reminder.scheduling == "INEXACT" && reminder.dueAt > System.currentTimeMillis())
                 Text("الجدولة الحالية تقريبية وقد يتأخر التنبيه.", style = MaterialTheme.typography.bodySmall)
             if (reminder.active) {

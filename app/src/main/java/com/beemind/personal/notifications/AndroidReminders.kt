@@ -15,6 +15,7 @@ import com.beemind.personal.data.local.ReminderEntity
 
 class AndroidReminderScheduler(private val context: Context) : ReminderScheduler {
     private val alarms = context.getSystemService(AlarmManager::class.java)
+    fun backgroundRestricted() = Build.VERSION.SDK_INT >= 28 && context.getSystemService(ActivityManager::class.java).isBackgroundRestricted
     fun exactAllowed() = Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()
     private fun pending(r: ReminderEntity) = PendingIntent.getBroadcast(context, 0,
         reminderIntent(context, ReminderAlarmReceiver::class.java, r, "ALARM"),
@@ -34,7 +35,7 @@ class AndroidReminderScheduler(private val context: Context) : ReminderScheduler
 }
 
 internal fun reminderIntent(context: Context, receiver: Class<*>, r: ReminderEntity, action: String) =
-    Intent(context, receiver).setAction(action).setData(Uri.Builder().scheme("beemind").authority("reminder")
+    Intent(context, receiver).addFlags(Intent.FLAG_RECEIVER_FOREGROUND).setAction(action).setData(Uri.Builder().scheme("beemind").authority("reminder")
         .appendPath(r.noteId).appendPath(r.generation).appendPath(action).build())
 
 class AndroidReminderNotifier(private val context: Context) : ReminderNotifier {

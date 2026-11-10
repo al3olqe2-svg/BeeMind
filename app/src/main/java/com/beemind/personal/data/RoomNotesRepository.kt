@@ -91,6 +91,7 @@ class RoomNotesRepository(private val database: BeeMindDatabase, private val clo
         database.withTransaction {
             dao.discardNoteDrafts(id)
             dao.delete(id)
+            database.foundationDao().deleteValue(com.beemind.personal.notifications.ReminderDiagnostics.key(id))
         }
         remindersChanged(previous)
     }

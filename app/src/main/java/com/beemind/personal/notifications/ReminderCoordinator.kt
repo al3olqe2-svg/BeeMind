@@ -24,6 +24,7 @@ interface ReminderNotifier {
 class ReminderCoordinator(private val db: BeeMindDatabase, private val scheduler: ReminderScheduler,
     private val notifier: ReminderNotifier, private val clock: Clock = Clock.systemUTC()) {
     private val dao = db.reminderDao()
+    private val diagnostics = ReminderDiagnostics(db)
 
     suspend fun reconcile() = ReminderGate.mutex.withLock { reconcileLocked() }
 
@@ -48,31 +49,35 @@ class ReminderCoordinator(private val db: BeeMindDatabase, private val scheduler
                 if (clock.millis() - r.dueAt > DAY || catchUp >= 3) {
                     dao.delivery(r.noteId, r.generation, "MISSED", null)
                 } else {
-                    val shown = deliverLocked(r)
+                    val shown = deliverLocked(r, "RECOVERY")
                     if (shown) catchUp++
                 }
             }
         }
     }
 
-    private suspend fun schedule(r: ReminderEntity) {
+    private suspend fun schedule(r: ReminderEntity): String {
         val mode = try { scheduler.schedule(r) } catch (_: RuntimeException) { "FAILED" }
         dao.scheduling(r.noteId, r.generation, mode)
+        if (mode == "FAILED") diagnostics.record(r, "SCHEDULE_FAILED")
+        return mode
     }
 
     suspend fun alarm(id: String, generation: String) = ReminderGate.mutex.withLock {
         val r = dao.get(id) ?: return@withLock
         if (r.generation != generation || !r.toReminder().active || r.delivery !in setOf("PENDING", "BLOCKED", "FAILED")) return@withLock
+        diagnostics.record(r, "ALARM_RECEIVED")
         // A clock adjustment or stale early broadcast must not deliver before the persisted instant.
         if (r.dueAt > clock.millis()) schedule(r) else {
             if (clock.millis() - r.dueAt > DAY) dao.delivery(id, generation, "MISSED", null)
-            else deliverLocked(r)
+            else deliverLocked(r, "ALARM")
         }
     }
 
-    private suspend fun deliverLocked(r: ReminderEntity): Boolean {
+    private suspend fun deliverLocked(r: ReminderEntity, source: String): Boolean {
         if (!notifier.allowed()) {
             dao.delivery(r.noteId, r.generation, "BLOCKED", null)
+            diagnostics.record(r, source + "_BLOCKED")
             return false
         }
         // Commit the claim first. The unavoidable Room/Android crash gap is visible as MISSED.
@@ -80,6 +85,7 @@ class ReminderCoordinator(private val db: BeeMindDatabase, private val scheduler
         return try {
             notifier.show(r)
             dao.delivery(r.noteId, r.generation, "DELIVERED", clock.millis())
+            diagnostics.record(r, source + "_DELIVERED")
             true
         } catch (_: SecurityException) {
             dao.delivery(r.noteId, r.generation, "BLOCKED", null); false
@@ -98,7 +104,11 @@ class ReminderCoordinator(private val db: BeeMindDatabase, private val scheduler
         if (updated == 0) return@withLock false
         safely { scheduler.cancel(r) }
         safely { notifier.cancel(id) }
-        if (action == "SNOOZE") schedule(checkNotNull(dao.get(id)))
+        val next = checkNotNull(dao.get(id))
+        if (action == "SNOOZE") {
+            val mode = schedule(next)
+            diagnostics.record(next, "SNOOZE_$mode")
+        } else diagnostics.record(next, status)
         true
     }
 
