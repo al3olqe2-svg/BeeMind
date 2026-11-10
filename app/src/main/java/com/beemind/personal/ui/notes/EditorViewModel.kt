@@ -56,9 +56,12 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
                         mutableState.update { it.copy(savedId = note.id) }
                     } else if (note.locked && !state.value.busy) {
                         // External locking also wins over a retained editor and its semantics.
+                        debounce?.cancel()
+                        inputJob?.cancel()
                         writes.withLock {
                             title.edit { replace(0, length, "") }; body.edit { replace(0, length, "") }
-                            mutableState.update { it.copy(lockedUntil = note.unlockAt, canSave = false) }
+                            original = EditorInput("", "", ExpressiveTrait.NONE, ReminderEdit(), TemporalEdit())
+                            mutableState.update { it.copy(lockedUntil = note.unlockAt, canSave = false, dirty = false, draftStored = false) }
                         }
                     }
                 }
@@ -129,7 +132,7 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
         mutableState.update { it.copy(draftStored = dirty(input)) }
     }
     private suspend fun persistDraft() {
-        try { writes.withLock { if (!closed) draftLocked() } }
+        try { writes.withLock { if (!closed && state.value.lockedUntil == null) draftLocked() } }
         catch (e: CancellationException) { throw e }
         catch (_: Exception) { mutableState.update { it.copy(error = EditorError.DRAFT) } }
     }
@@ -166,7 +169,7 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
             // NonCancellable protects an already-started Room commit from a newer keystroke
             // cancelling debounce. Serialization prevents a stale draft overwriting a save.
             withContext(NonCancellable) { writes.withLock {
-                if (closed) return@withLock
+                if (closed || state.value.lockedUntil != null) return@withLock
                 val input = live()
                 draftLocked() // Recovery is durable even when validation/commit fails.
                 if (input.body.isBlank()) {
@@ -193,6 +196,7 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
                 if (saved.locked) {
                     closed = true
                     title.edit { replace(0, length, "") }; body.edit { replace(0, length, "") }
+                    original = EditorInput("", "", ExpressiveTrait.NONE, ReminderEdit(), TemporalEdit())
                     mutableState.update { it.copy(busy = false, lockedUntil = saved.unlockAt, savedId = saved.id) }
                 } else if (leave) {
                     closed = true

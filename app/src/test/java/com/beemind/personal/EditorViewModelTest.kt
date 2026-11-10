@@ -23,6 +23,19 @@ class EditorViewModelTest {
     private fun editor(repo: FakeRepository): EditorViewModel = EditorViewModel(repo, "session", null)
         .also { store.put("editor", it) }
 
+    @Test fun externalCapsuleLockClearsRetainedEditorAndStopsPendingAutosave() = runTest {
+        val base = FakeRepository().apply { notes["old"] = Note("old", "", "خاص", 1, 1) }
+        val updates = kotlinx.coroutines.flow.MutableStateFlow(base.notes["old"])
+        val repo = object : NotesRepository by base { override fun observeNote(id: String) = updates }
+        val vm = EditorViewModel(repo, "session", "old").also { store.put("locked-external", it) }
+        vm.body.edit { append(" تعديل") }
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications(); runCurrent()
+        updates.value = Note("old", null, "", 1, 1, unlockAt = 10000, locked = true)
+        runCurrent(); advanceUntilIdle()
+        assertEquals("", vm.body.text.toString()); assertEquals(10000L, vm.state.value.lockedUntil)
+        assertEquals(0, base.saveCalls)
+        vm.requestExit(); assertTrue(vm.state.value.exited)
+    }
     @Test fun typingDebouncePersistsDraftThenCommitsWithoutDeparture() = runTest {
         val repo = FakeRepository(); val vm = editor(repo)
         vm.body.edit { append("حفظ بلا مغادرة") }
