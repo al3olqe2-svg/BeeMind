@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.beemind.personal.R
@@ -51,15 +52,13 @@ fun Modifier.expressiveHalo(trait: ExpressiveTrait): Modifier = if (trait == Exp
 fun TraitPicker(selected: ExpressiveTrait, enabled: Boolean, onSelect: (ExpressiveTrait) -> Unit) {
     var open by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { open = true }, enabled = enabled,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("trait_picker")) {
         Text(if (selected == ExpressiveTrait.NONE) "السمات" else stringResource(selected.labelResource()))
     }
     if (open) ModalBottomSheet(onDismissRequest = { open = false }, containerColor = BeeDesign.surface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = BeeDesign.page).padding(bottom = 24.dp)
             .verticalScroll(rememberScrollState()).selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.trait_title), style = MaterialTheme.typography.titleLarge)
-            Text(stringResource(R.string.trait_save_hint), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
             ExpressiveTrait.entries.forEach { trait ->
                 Row(Modifier.fillMaxWidth().selectable(selected = selected == trait, role = Role.RadioButton,
                     onClick = { onSelect(trait); open = false }).padding(vertical = 8.dp),
@@ -69,11 +68,7 @@ fun TraitPicker(selected: ExpressiveTrait, enabled: Boolean, onSelect: (Expressi
                         .padding(2.dp).background(BeeDesign.surface, BeeDesign.card))
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(trait.labelResource()), style = MaterialTheme.typography.titleSmall)
-                        Text(stringResource(when (trait) {
-                            ExpressiveTrait.NONE -> R.string.trait_none_description
-                            ExpressiveTrait.GLOW -> R.string.trait_glow_description
-                            ExpressiveTrait.ANGER -> R.string.trait_anger_description
-                        }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
                     }
                     RadioButton(selected = selected == trait, onClick = null)
                 }

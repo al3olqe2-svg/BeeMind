@@ -109,7 +109,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                     val reminderDue = if (state.reminderEdit.edited) state.reminderEdit.dueAt else state.savedReminder?.takeIf { it.active }?.dueAt
                     reminderDue?.let { Text("◷ ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary) }
-            ReminderDetails(state.savedReminder, onEdit = { }, locked = true)
+            if (!state.reminderEdit.edited) ReminderDetails(state.savedReminder, onEdit = { }, locked = true)
             TextButton(onClick = { traitsOpen = false }) { Text("تم") }
         }
     }

@@ -65,7 +65,7 @@ class NotesExperienceTest {
     private fun closeTraits() { compose.onNodeWithText("تم", useUnmergedTree = true).performScrollTo().performClick() }
     private fun chooseTrait(label: String) {
         traits()
-        compose.onAllNodesWithText("السمات").onLast().performClick()
+        compose.onNodeWithTag("trait_picker").performClick()
         compose.onNodeWithText(label, useUnmergedTree = true).performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("شخصية الملاحظة").fetchSemanticsNodes().isEmpty() }
         closeTraits()
