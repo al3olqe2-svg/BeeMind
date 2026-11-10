@@ -79,7 +79,7 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     androidTestImplementation(libs.androidx.test.junit)
-    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation(libs.androidx.test.runner)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
