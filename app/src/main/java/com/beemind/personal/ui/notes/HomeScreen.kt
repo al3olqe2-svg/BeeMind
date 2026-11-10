@@ -36,38 +36,24 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
     val density = LocalDensity.current
     val widthPx = LocalWindowInfo.current.containerSize.width
     val columns = masonryColumns((widthPx / density.density).toInt(), density.fontScale)
-    Scaffold(
-        modifier = Modifier.background(BeeDesign.atmosphere),
-        containerColor = Color.Transparent,
-        bottomBar = {
-            if (state is HomeState.Ready) {
-                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
-                    contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
-                    NeonAdd(onClick = { state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate() })
-                }
-            }
-        },
-    ) { padding ->
-        LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Fixed(columns),
-            modifier = Modifier.fillMaxSize().padding(padding).testTag("notes_grid").semantics { isTraversalGroup = true },
-            contentPadding = PaddingValues(start = BeeDesign.page, end = BeeDesign.page, top = 24.dp, bottom = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(BeeDesign.gap),
-            verticalItemSpacing = BeeDesign.gap,
-        ) {
-            item(span = StaggeredGridItemSpan.FullLine, key = "header") {
-                Box(Modifier.padding(vertical = 24.dp).fillMaxWidth()) { RainbowLine()
-                }
-            }
+    Column(Modifier.fillMaxSize().background(BeeDesign.atmosphere).systemBarsPadding()) {
+        Box(Modifier.fillMaxWidth().padding(start = BeeDesign.page, end = BeeDesign.page, top = 48.dp, bottom = 24.dp)) {
+            RainbowLine()
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             when (state) {
-                HomeState.Loading -> item(span = StaggeredGridItemSpan.FullLine) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = loadingLabel })
-                }
-                HomeState.Error -> item(span = StaggeredGridItemSpan.FullLine) {
+                HomeState.Loading -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = loadingLabel })
+                HomeState.Error -> Box(Modifier.padding(BeeDesign.page)) {
                     ErrorPanel(stringResource(R.string.notes_error), onRetry = onRetry)
                 }
-                is HomeState.Ready -> {
-                    if (state.notes.isNotEmpty()) {
+                is HomeState.Ready -> if (state.notes.isNotEmpty()) {
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Fixed(columns),
+                        modifier = Modifier.fillMaxSize().testTag("notes_grid").semantics { isTraversalGroup = true },
+                        contentPadding = PaddingValues(start = BeeDesign.page, end = BeeDesign.page, top = 12.dp, bottom = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(BeeDesign.gap),
+                        verticalItemSpacing = BeeDesign.gap,
+                    ) {
                         itemsIndexed(state.notes, key = { _, note -> note.id }, contentType = { _, _ -> "note" }) { index, note ->
                             NoteCard(note, index, onClick = { onOpen(note.id) })
                         }
@@ -75,7 +61,14 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
                 }
             }
         }
+        if (state is HomeState.Ready) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
+                NeonAdd(onClick = { state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate() })
+            }
+        }
     }
+
 }
 
 @Composable

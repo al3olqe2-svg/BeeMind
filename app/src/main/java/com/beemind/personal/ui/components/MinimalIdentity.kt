@@ -19,6 +19,7 @@ import com.beemind.personal.ui.theme.BeeDesign
 @Composable
 fun RainbowLine() {
     Canvas(Modifier.fillMaxWidth().height(16.dp).testTag("rainbow_line")) {
+        if (size.width <= 0f || size.height <= 0f) return@Canvas
         val y = size.height / 2
         listOf(14f to .035f, 9f to .075f, 5f to .16f, 2f to 1f).forEach { (width, alpha) ->
             drawLine(BeeDesign.rainbow, Offset(0f, y), Offset(size.width, y), width.dp.toPx(), alpha = alpha,
