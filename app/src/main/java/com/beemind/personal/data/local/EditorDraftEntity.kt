@@ -15,8 +15,10 @@ data class EditorDraftEntity(
     val body: String,
     val editedAt: Long,
     @ColumnInfo(defaultValue = "'NONE'") val expressiveTrait: ExpressiveTrait = ExpressiveTrait.NONE,
+    @ColumnInfo(defaultValue = "0") val reminderEdited: Boolean = false,
+    @ColumnInfo(defaultValue = "NULL") val reminderDueAt: Long? = null,
 ) {
-    fun toDraft() = EditorDraft(sessionId, noteId, title, body, editedAt, expressiveTrait)
+    fun toDraft() = EditorDraft(sessionId, noteId, title, body, editedAt, expressiveTrait, com.beemind.personal.domain.ReminderEdit(reminderEdited, reminderDueAt))
 }
 
-data class DraftHeader(val sessionId: String, val noteId: String?, val editedAt: Long, val titleBytes: Int, val bodyBytes: Int, val expressiveTrait: ExpressiveTrait)
+data class DraftHeader(val sessionId: String, val noteId: String?, val editedAt: Long, val titleBytes: Int, val bodyBytes: Int, val expressiveTrait: ExpressiveTrait, val reminderEdited: Boolean, val reminderDueAt: Long?)

@@ -52,4 +52,5 @@
     <string name="trait_none_description">العودة إلى المظهر الأصلي الهادئ</string>
     <string name="trait_glow_description">إطار قزحي متصل وهالة مضيئة</string>
     <string name="trait_anger_description">إطار قرمزي حاد وهالة حمراء</string>
+    <string name="reminder_time_error">انقضى الموعد المختار أو وقت الساعة غير صالح. اختر موعدًا مستقبليًا واضحًا ثم احفظ.</string>
 </resources>

@@ -34,8 +34,22 @@ fun BeeMindApp() {
     val context = LocalContext.current
     val repository = (context.applicationContext as BeeMindApplication).notesRepository
     val nav = rememberNavController()
-    val scope = rememberCoroutineScope()
+    val activity = context as com.beemind.personal.MainActivity
+    val reminderOpen by activity.reminderOpen.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(reminderOpen) {
+        reminderOpen?.let { (id, generation) ->
+            try {
+                val reminder = (context.applicationContext as BeeMindApplication).database.reminderDao().get(id)
+                if (reminder?.generation == generation) nav.navigate("note/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                else snackbar.showSnackbar("تغيّر التذكير أو حُذفت الملاحظة. افتح الملاحظة من الصفحة الرئيسية.")
+            } catch (e: CancellationException) { throw e
+            } catch (_: Exception) { snackbar.showSnackbar("تعذر فتح الملاحظة. حاول من الصفحة الرئيسية.") }
+
+            activity.reminderOpen.value = null
+        }
+    }
+    val scope = rememberCoroutineScope()
     val goBack: (NavBackStackEntry) -> Unit = { source ->
         if (nav.currentBackStackEntry === source) scope.launch {
             source.lifecycle.withResumed { if (nav.currentBackStackEntry === source) nav.popBackStack() }

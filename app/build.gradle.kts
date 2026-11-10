@@ -23,7 +23,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.3.0"
+        versionName = "0.4.0"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {

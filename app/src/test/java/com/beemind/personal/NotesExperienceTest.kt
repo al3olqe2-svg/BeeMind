@@ -75,7 +75,8 @@ class NotesExperienceTest {
         compose.onNodeWithTag("editor_title").assertTextContains("عنوان يبقى")
         compose.onNodeWithTag("editor_body").assertTextContains(longText)
         compose.onNodeWithTag("save_note").performClick()
-        compose.waitUntil(15_000) { runBlocking { repository.observeNotes().first().size == 1 } }
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(1, runBlocking { repository.observeNotes().first().size })
         runBlocking {
             val id = repository.observeNotes().first().single().id
             assertEquals(longText, repository.getNote(id)!!.body)
@@ -155,8 +156,9 @@ class NotesExperienceTest {
         waitForTag("editor_body")
         chooseTrait("بدون سمة")
         compose.onNodeWithTag("save_note").performClick()
-        compose.waitUntil(15_000) { runBlocking { repository.observeNotes().first().single().expressiveTrait == ExpressiveTrait.NONE } }
+        // Drain the paused Android main looper via UI synchronization before reading Room.
         compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(ExpressiveTrait.NONE, runBlocking { repository.observeNotes().first().single().expressiveTrait })
         compose.onNodeWithContentDescription("رجوع").performClick()
         val id = runBlocking { repository.observeNotes().first().single().id }
         waitForTag("note_$id")
@@ -176,6 +178,52 @@ class NotesExperienceTest {
         screenshot("home-expressive-traits")
         compose.onNodeWithTag("note_GLOW").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithText("السمة: Glow — الوهج").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun reminderSheetSavesOnlyWithNoteAndCoexistsWithGlow() {
+        openNew()
+        compose.onNodeWithTag("editor_body").performTextInput("فكرة لها موعد")
+        chooseTrait("Glow — الوهج")
+        compose.onNodeWithText("＋ تذكير").performClick()
+        compose.onNodeWithText("5 د").performClick()
+        compose.onNodeWithText("+5 دقائق").performClick()
+        screenshot("reminder-sheet")
+        assertTrue(runBlocking { repository.observeNotes().first().isEmpty() })
+        compose.onNodeWithText("اعتماد الموعد في المسودة").performScrollTo().performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("اعتماد الموعد في المسودة").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("◷ تذكير مفعّل").assertIsDisplayed()
+        compose.activityRule.scenario.recreate()
+        waitForTag("editor_body")
+        compose.onNodeWithText("◷ تذكير مفعّل").assertIsDisplayed()
+        compose.onNodeWithTag("save_note").performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("◷ Reminder — التذكير").fetchSemanticsNodes().isNotEmpty() }
+        screenshot("reminder-details")
+        val note = runBlocking { repository.getNote(repository.observeNotes().first().single().id)!! }
+        assertEquals(ExpressiveTrait.GLOW, note.expressiveTrait)
+        assertNotNull(note.reminder)
+        assertTrue(note.reminder!!.dueAt > System.currentTimeMillis() + 500_000)
+        compose.onNodeWithText("إنجاز").performScrollTo().performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("تم إنجازه").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(note.createdAt, runBlocking { repository.getNote(note.id)!!.createdAt })
+    }
+
+    @Test
+    @Config(sdk = [28], qualifiers = "w320dp-h640dp")
+    fun calendarAndTimePickersFitSmallPhone() {
+        openNew()
+        compose.onNodeWithTag("editor_body").performTextInput("موعد بالتاريخ والوقت")
+        compose.onNodeWithText("＋ تذكير").performClick()
+        compose.onNodeWithText("غدًا").performScrollTo().performClick()
+        compose.onNodeWithText("التاريخ:", substring = true).performScrollTo().performClick()
+        screenshot("reminder-date-small")
+        compose.onNodeWithText("اختيار").performClick()
+        compose.onNodeWithText("الوقت:", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("الساعة والدقيقة").assertIsDisplayed()
+        screenshot("reminder-time-small")
+        compose.onNodeWithText("اختيار").performClick()
+        compose.onNodeWithText("اعتماد الموعد في المسودة").performScrollTo().assertIsEnabled().performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("اعتماد الموعد في المسودة").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("◷ تذكير مفعّل").assertIsDisplayed()
     }
 
     @Test fun launcherWingRendersWithAndroidDrawable() {
@@ -221,7 +269,8 @@ class NotesExperienceTest {
         val before = runBlocking { repository.getNote("short")!! }
         compose.onNodeWithTag("editor_body").performTextReplacement("خاطرة معدّلة من الواجهة")
         compose.onNodeWithTag("save_note").performClick()
-        compose.waitUntil(15_000) { runBlocking { repository.getNote("short")?.body == "خاطرة معدّلة من الواجهة" } }
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals("خاطرة معدّلة من الواجهة", runBlocking { repository.getNote("short")!!.body })
         runBlocking {
             val edited = repository.getNote("short")!!
             assertEquals(before.createdAt, edited.createdAt)

@@ -57,6 +57,7 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                                 Text(stringResource(R.string.trait_current, stringResource(note.expressiveTrait.labelResource())),
                                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             }
+                            item(key = "reminder") { ReminderDetails(note.reminder, onEdit) }
                             item(key = "dates") {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(stringResource(R.string.created_date, formatNoteTimestamp(note.createdAt)),

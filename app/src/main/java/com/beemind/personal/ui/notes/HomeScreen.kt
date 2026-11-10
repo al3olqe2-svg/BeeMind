@@ -115,7 +115,7 @@ private fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
             if (note.expressiveTrait == ExpressiveTrait.NONE) edge else note.expressiveTrait.edgeBrush()), shape = BeeDesign.card, colors = CardDefaults.cardColors(containerColor = BeeDesign.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag("note_${note.id}")
-                .semantics { traversalIndex = index.toFloat() + 1; stateDescription = traitLabel }) {
+                .semantics { traversalIndex = index.toFloat() + 1; stateDescription = traitLabel + (note.reminderDueAt?.let { "، تذكير: ${reminderTimestamp(it)}" } ?: "") }) {
             Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (!note.title.isNullOrBlank()) {
                     Text(note.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -124,7 +124,7 @@ private fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
                     Text(note.preview, style = MaterialTheme.typography.bodyMedium, maxLines = 8,
                         overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(formatNoteDate(note.createdAt), style = MaterialTheme.typography.bodySmall,
+                Text((if (note.reminderDueAt != null) "◷  " else "") + formatNoteDate(note.createdAt), style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

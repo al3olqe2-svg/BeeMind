@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NotesDao {
     // Bounded projection keeps full diaries out of the home screen's memory/layout work.
-    @Query("SELECT id, substr(title, 1, 160) AS title, substr(body, 1, 420) AS preview, createdAt, updatedAt, expressiveTrait FROM notes ORDER BY createdAt DESC, id ASC")
+    @Query("SELECT n.id, substr(n.title, 1, 160) AS title, substr(n.body, 1, 420) AS preview, n.createdAt, n.updatedAt, n.expressiveTrait, CASE WHEN r.status IN ('SCHEDULED','SNOOZED') THEN r.dueAt ELSE NULL END AS reminderDueAt FROM notes n LEFT JOIN reminders r ON r.noteId = n.id ORDER BY n.createdAt DESC, n.id ASC")
     fun observeNotes(): Flow<List<NoteSummary>>
 
     @Query("SELECT id, createdAt, updatedAt, expressiveTrait, length(CAST(title AS BLOB)) AS titleBytes, length(CAST(body AS BLOB)) AS bodyBytes FROM notes WHERE id = :id")
@@ -37,7 +37,7 @@ interface NotesDao {
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun delete(id: String)
 
-    @Query("SELECT sessionId, noteId, editedAt, expressiveTrait, length(CAST(title AS BLOB)) AS titleBytes, length(CAST(body AS BLOB)) AS bodyBytes FROM editor_drafts WHERE sessionId = :sessionId")
+    @Query("SELECT sessionId, noteId, editedAt, expressiveTrait, reminderEdited, reminderDueAt, length(CAST(title AS BLOB)) AS titleBytes, length(CAST(body AS BLOB)) AS bodyBytes FROM editor_drafts WHERE sessionId = :sessionId")
     suspend fun getDraftHeader(sessionId: String): DraftHeader?
 
     @Query("SELECT substr(CAST(body AS BLOB), :offset, :count) FROM editor_drafts WHERE sessionId = :sessionId")
