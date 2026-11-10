@@ -27,7 +27,8 @@ enum class EditorError { EMPTY, SAVE, DRAFT, MISSING, REMINDER_TIME }
  * never additional notes. All draft/commit writes share one mutex. Text remains editable
  * during the debounced commit; only explicit departure freezes input until Room commits. */
 class EditorViewModel(private val repository: NotesRepository, val sessionId: String,
-    private val noteId: String?) : ViewModel() {
+    private val noteId: String?,
+    private val elapsedMillis: () -> Long = android.os.SystemClock::elapsedRealtime) : ViewModel() {
     // Legacy titles are retained internally, never requested, displayed or generated.
     val title = TextFieldState()
     val body = TextFieldState()
@@ -44,6 +45,7 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
     private var closed = false
     private var loading = false
     private var lastAutoFailure: EditorInput? = null
+    private var lastDraftAttempt = elapsedMillis()
 
     init {
         load()
@@ -104,7 +106,8 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
                         refresh()
                         debounce?.cancel()
                         debounce = launch {
-                            delay(200)
+                            // A long uninterrupted typing burst must still checkpoint.
+                            delay(minOf(200L, (2_000L - (elapsedMillis() - lastDraftAttempt)).coerceAtLeast(0L)))
                             persistDraft()
                             delay(600)
                             // A capsule closes only on explicit Save/Back/background, after
@@ -125,6 +128,7 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
         else -> EditorError.SAVE
     }
     private suspend fun draftLocked() {
+        lastDraftAttempt = elapsedMillis()
         val input = live()
         if (dirty(input)) repository.putDraft(EditorDraft(sessionId, (noteId ?: sessionId).takeIf { committed },
             input.title, input.body, System.currentTimeMillis(), input.trait, input.reminder, input.temporal))
@@ -132,7 +136,11 @@ class EditorViewModel(private val repository: NotesRepository, val sessionId: St
         mutableState.update { it.copy(draftStored = dirty(input)) }
     }
     private suspend fun persistDraft() {
-        try { writes.withLock { if (!closed && state.value.lockedUntil == null) draftLocked() } }
+        try {
+            withContext(NonCancellable) {
+                writes.withLock { if (!closed && state.value.lockedUntil == null) draftLocked() }
+            }
+        }
         catch (e: CancellationException) { throw e }
         catch (_: Exception) { mutableState.update { it.copy(error = EditorError.DRAFT) } }
     }

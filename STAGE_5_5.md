@@ -21,9 +21,10 @@ owner phone acceptance. No Stage 6 changes.
   and calendar's year navigation are intact, including DST ambiguity rejection.
 
 ## Autosave protocol
-A 200ms typing debounce writes a persistent recovery draft, followed by a note commit
+A 200ms typing debounce writes a persistent recovery draft (with a 2s maximum wait
+during uninterrupted typing), followed by a note commit
 at 800ms. A stable session UUID is also a new note ID. A single mutex serializes every
-draft/commit, with in-flight commits protected against debounce cancellation. A newer
+draft/commit, with in-flight draft writes and commits protected against debounce cancellation. A newer
 live snapshot is checked after a commit, so typing during IO isn't overwritten. Only
 actual changes write note content; `createdAt` stays immutable. Text-only commits do
 not reconcile all AlarmManager schedules.

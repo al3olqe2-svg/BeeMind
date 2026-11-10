@@ -121,7 +121,7 @@ metadata, inline trait panels, and save/discard prompts. No Stage 6 work is auth
   add control and masonry note bodies; the add control reserves its own bottom space.
 - New notes have one body field and no generated title. Existing `title` columns/data
   remain intact, hidden, with no Room version change or destructive migration.
-- Durable debounced recovery drafts (200ms), serialized note autosaves (800ms), and
+- Durable debounced recovery drafts (200ms, bounded at 2s during continuous typing), serialized note autosaves (800ms), and
   lifecycle/Back flushes. Save waits for Room success then returns home; Back returns
   to its previous destination after success. Failure retains input/draft and reports error.
 - An empty new editor creates no note. Temporarily clearing an existing note never

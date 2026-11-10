@@ -23,6 +23,21 @@ class EditorViewModelTest {
     private fun editor(repo: FakeRepository): EditorViewModel = EditorViewModel(repo, "session", null)
         .also { store.put("editor", it) }
 
+    @Test fun uninterruptedTypingCheckpointsWithinTwoSecondsWithoutCreatingRepeatedNotes() = runTest {
+        val repo = FakeRepository()
+        val vm = EditorViewModel(repo, "session", null) { testScheduler.currentTime }.also { store.put("continuous", it) }
+        repeat(25) {
+            vm.body.edit { append("ع") }
+            androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications(); runCurrent()
+            advanceTimeBy(100); runCurrent()
+        }
+        assertNotNull("Continuous typing must not postpone recovery indefinitely", repo.draft)
+        assertTrue(repo.draft!!.body.length >= 19)
+        assertTrue(repo.notes.isEmpty())
+        vm.requestExit()
+        assertEquals("ع".repeat(25), repo.notes["session"]!!.body)
+        assertEquals(1, repo.notes.size)
+    }
     @Test fun externalCapsuleLockClearsRetainedEditorAndStopsPendingAutosave() = runTest {
         val base = FakeRepository().apply { notes["old"] = Note("old", "", "خاص", 1, 1) }
         val updates = kotlinx.coroutines.flow.MutableStateFlow(base.notes["old"])
