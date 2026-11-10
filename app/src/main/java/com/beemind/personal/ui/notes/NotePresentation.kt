@@ -3,7 +3,6 @@ package com.beemind.personal.ui.notes
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.util.Locale
 
 fun formatNoteDate(timestamp: Long): String = DateTimeFormatter.ofPattern("d MMMM")
