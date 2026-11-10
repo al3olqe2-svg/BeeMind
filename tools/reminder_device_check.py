@@ -32,7 +32,15 @@ def kill_cached():
     adb('shell', 'am', 'kill', PACKAGE)  # deliberately NOT force-stop
     time.sleep(2)
     result = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
-    assert not result.stdout.strip(), 'Target process did not die: ' + result.stdout
+    if result.stdout.strip():
+        # am kill can decline while the recently hidden Activity still has foreground
+        # importance. Kill only this debuggable fixture UID; do not mark package stopped.
+        pid = result.stdout.strip()
+        assert pid.isdigit()
+        adb('shell', 'run-as', PACKAGE, 'kill', '-9', pid)
+        time.sleep(2)
+        check = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
+        assert not check.stdout.strip(), 'Target process did not die: ' + check.stdout
     print('Confirmed: no BeeMind process or Activity', flush=True)
 
 def wait_for(predicate, seconds, label):
