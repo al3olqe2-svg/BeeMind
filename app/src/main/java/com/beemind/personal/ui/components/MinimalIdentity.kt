@@ -8,7 +8,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -29,10 +29,17 @@ fun RainbowLine() {
 
 @Composable
 fun NeonAdd(onClick: () -> Unit) {
-    FloatingActionButton(onClick = onClick, shape = CircleShape,
-        containerColor = Color(0xFF9664EA), contentColor = BeeDesign.ink,
-        modifier = Modifier.padding(8.dp).size(64.dp).testTag("new_note").drawBehind {
-            drawCircle(Brush.radialGradient(listOf(Color(0xFFB475FF).copy(alpha = .45f), Color.Transparent),
-                radius = size.width * .85f), radius = size.width * .85f)
-        }) { Icon(Icons.Default.Add, "إضافة ملاحظة", Modifier.size(30.dp)) }
+    Box(Modifier.padding(8.dp).size(64.dp).drawWithCache {
+        val radius = size.minDimension * .85f
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val halo = if (radius > 0f) Brush.radialGradient(
+            listOf(Color(0xFFB475FF).copy(alpha = .45f), Color.Transparent), center, radius) else null
+        onDrawBehind { if (halo != null) drawCircle(halo, radius = radius, center = center) }
+    }) {
+        FloatingActionButton(onClick = onClick, shape = CircleShape,
+            containerColor = Color(0xFF9664EA), contentColor = BeeDesign.ink,
+            modifier = Modifier.fillMaxSize().testTag("new_note")) {
+            Icon(Icons.Default.Add, "إضافة ملاحظة", Modifier.size(30.dp))
+        }
+    }
 }
