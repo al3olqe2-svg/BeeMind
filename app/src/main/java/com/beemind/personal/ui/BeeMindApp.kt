@@ -1,5 +1,9 @@
 package com.beemind.personal.ui
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import com.beemind.personal.ui.theme.BeeDesign
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.foundation.layout.Box
@@ -57,7 +61,9 @@ fun BeeMindApp() {
         }
     }
     Box(Modifier.fillMaxSize()) {
-        NavHost(navController = nav, startDestination = "home") {
+        NavHost(navController = nav, startDestination = "home",
+            enterTransition = { fadeIn(tween(BeeDesign.pressMillis)) },
+            exitTransition = { fadeOut(tween(BeeDesign.pressMillis)) }) {
             composable("home") { entry ->
                 val vm: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(repository) } })
                 val state by vm.state.collectAsStateWithLifecycle()

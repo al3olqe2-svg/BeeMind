@@ -43,7 +43,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
         TopAppBar(title = { Text(stringResource(R.string.editor_title), style = MaterialTheme.typography.titleMedium) },
             navigationIcon = { BeeBack(vm::requestExit, !state.busy) },
             actions = { Button(onClick = save, enabled = !state.loading && !state.loadFailed && !state.busy && state.canSave,
-                modifier = Modifier.padding(end = 12.dp).testTag("save_note")) {
+                shape = BeeDesign.button, modifier = Modifier.padding(end = 12.dp).testTag("save_note")) {
                 Text(stringResource(if (state.busy) R.string.saving else R.string.save_note))
             } })
     }) { padding ->
@@ -78,7 +78,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             inner()
                         } })
-                    Box(Modifier.fillMaxWidth().height(3.dp).background(BeeDesign.rainbow, BeeDesign.card))
+                    HorizontalDivider(color = BeeDesign.border.copy(alpha = 0.55f))
                     val bodyLabel = stringResource(R.string.body_hint)
                     BasicTextField(state = vm.body, enabled = !state.busy,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface, textDirection = TextDirection.ContentOrRtl),

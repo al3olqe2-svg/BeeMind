@@ -35,6 +35,7 @@ class NotesExperienceTest {
     }
     private fun openNew() {
         compose.waitUntil(15_000) { compose.onAllNodesWithText("اكتب أول ملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        screenshot("home-empty")
         compose.onNodeWithText("اكتب أول ملاحظة").performClick()
         waitForTag("editor_body")
     }
@@ -43,7 +44,9 @@ class NotesExperienceTest {
         requireNotNull(file.parentFile).mkdirs()
         lateinit var bitmap: Bitmap
         compose.runOnIdle {
-            val view = compose.activity.window.decorView
+            val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog()
+            val view = if (dialog?.isShowing == true) requireNotNull(dialog.window).decorView
+                else compose.activity.window.decorView
             bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
             view.draw(Canvas(bitmap))
         }
@@ -85,17 +88,47 @@ class NotesExperienceTest {
         compose.onNodeWithTag("editor_body").performTextReplacement("خاطرة عربية حقيقية")
         compose.onNodeWithContentDescription("رجوع").performClick()
         compose.onNodeWithText("قبل أن تغادر…").assertIsDisplayed()
+        screenshot("unsaved-dialog")
         compose.onNodeWithText("متابعة الكتابة").performClick()
         compose.onNodeWithTag("editor_body").assertTextContains("خاطرة عربية حقيقية")
         compose.onNodeWithTag("save_note").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("حذف الملاحظة").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("حذف الملاحظة").performClick()
+        compose.onNodeWithText("حذف هذه الملاحظة؟").assertIsDisplayed()
+        screenshot("delete-dialog")
         compose.onNodeWithText("إلغاء").performClick()
         compose.onNodeWithText("خاطرة عربية حقيقية").assertIsDisplayed()
         compose.onNodeWithContentDescription("حذف الملاحظة").performClick()
         compose.onNodeWithText("حذف نهائي").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithText("اكتب أول ملاحظة").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(runBlocking { repository.observeNotes().first().isEmpty() })
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h640dp")
+    fun smallPhoneWithLargeFontKeepsWritingControlsAccessible() {
+        org.robolectric.RuntimeEnvironment.setFontScale(1.3f)
+        compose.activityRule.scenario.recreate()
+        openNew()
+        compose.onNodeWithTag("editor_body").performTextInput("نص عربي طويل، مع English 123. ".repeat(50))
+        compose.onNodeWithTag("save_note").assertIsDisplayed().assertIsEnabled()
+        screenshot("editor-small-large-font")
+    }
+
+    @Test fun launcherWingRendersWithAndroidDrawable() {
+        val context = compose.activity
+        for ((resource, name) in listOf(R.mipmap.ic_launcher to "launcher", R.drawable.ic_wing_mono to "wing-monochrome")) {
+            for (size in listOf(48, 192)) {
+                val drawable = requireNotNull(context.getDrawable(resource))
+                val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                drawable.setBounds(0, 0, size, size)
+                drawable.draw(Canvas(bitmap))
+                val file = File("build/reports/screenshots/$name-$size.png")
+                requireNotNull(file.parentFile).mkdirs()
+                file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                bitmap.recycle()
+            }
+        }
     }
 
     @Test fun masonryUsesDifferentCardHeightsAndCanOpenAnExistingNote() {
@@ -111,8 +144,13 @@ class NotesExperienceTest {
         assertTrue("Cards must use content height", long.height > short.height)
         assertTrue("Regular phone width must have two columns", long.left != short.left)
         screenshot("home-masonry")
+        compose.onNodeWithTag("note_short").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(220)
+        screenshot("home-card-pressed")
+        compose.onNodeWithTag("note_short").performTouchInput { cancel() }
         compose.onNodeWithTag("note_short").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        screenshot("detail")
         compose.onNodeWithContentDescription("تعديل الملاحظة").performClick()
         waitForTag("editor_body")
         compose.onNodeWithTag("editor_title").assertTextContains("لحظة صغيرة")

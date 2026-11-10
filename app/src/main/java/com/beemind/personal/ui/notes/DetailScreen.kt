@@ -56,7 +56,7 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                             item(key = "dates") {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(stringResource(R.string.created_date, formatNoteTimestamp(note.createdAt)),
-                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (note.updatedAt != note.createdAt) Text(
                                         stringResource(R.string.updated_date, formatNoteTimestamp(note.updatedAt)),
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -66,7 +66,7 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                                 Text(title, style = MaterialTheme.typography.headlineMedium,
                                     modifier = Modifier.semantics { heading() })
                             } }
-                            item(key = "divider") { HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.primaryContainer) }
+                            item(key = "divider") { HorizontalDivider(Modifier.padding(vertical = 8.dp), color = BeeDesign.border.copy(alpha = 0.55f)) }
                             itemsIndexed(chunks, key = { index, _ -> "body_$index" }) { _, chunk ->
                                 Text(chunk, style = MaterialTheme.typography.bodyLarge)
                             }
