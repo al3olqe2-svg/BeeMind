@@ -6,6 +6,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NotePresentationTest {
+    @Test fun calendarCivilDateDoesNotShiftInNegativeDeviceTimezones() {
+        val previous = java.util.TimeZone.getDefault()
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Los_Angeles"))
+            val selectedDate = java.time.Instant.parse("2027-01-01T00:00:00Z").toEpochMilli()
+            // Material DatePicker encodes a civil date as UTC midnight, not a local instant.
+            val headline = com.beemind.personal.ui.notes.formatNoteDate(selectedDate, java.time.ZoneOffset.UTC)
+            assertTrue(headline.startsWith("1 ")); assertTrue(headline.contains("يناير"))
+            assertTrue(com.beemind.personal.ui.notes.formatNoteDate(selectedDate).contains("ديسمبر"))
+        } finally { java.util.TimeZone.setDefault(previous) }
+    }
     @Test fun compactDatesUseLocalZoneAndRetainFullInternalTimestamp() {
         val previous = java.util.TimeZone.getDefault()
         try {

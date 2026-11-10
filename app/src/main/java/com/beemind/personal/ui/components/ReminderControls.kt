@@ -116,7 +116,7 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
         }, dismissButton = { TextButton(onClick = { dateOpen = false }) { Text("إلغاء") } }) {
             DatePicker(state, title = null, headline = {
                 state.selectedDateMillis?.let {
-                    Text(com.beemind.personal.ui.notes.formatNoteDate(it), modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+                    Text(com.beemind.personal.ui.notes.formatNoteDate(it, ZoneOffset.UTC), modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
                 }
             }, modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()))
         }

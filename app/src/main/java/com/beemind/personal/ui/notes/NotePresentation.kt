@@ -5,8 +5,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-fun formatNoteDate(timestamp: Long): String = DateTimeFormatter.ofPattern("d MMMM")
-    .withLocale(Locale.forLanguageTag("ar")).withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(timestamp))
+fun formatNoteDate(timestamp: Long, zone: ZoneId = ZoneId.systemDefault()): String = DateTimeFormatter.ofPattern("d MMMM")
+    .withLocale(Locale.forLanguageTag("ar")).withZone(zone).format(Instant.ofEpochMilli(timestamp))
 
 fun formatNoteTimestamp(timestamp: Long): String = DateTimeFormatter.ofPattern("d MMMM • HH:mm")
     .withLocale(Locale.forLanguageTag("ar")).withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(timestamp))
