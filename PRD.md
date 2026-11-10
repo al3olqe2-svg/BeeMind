@@ -113,3 +113,27 @@ BeeMind مساحة شخصية للأفكار واليوميات. تبدأ كل �
 
 ## Approved owner decision — 10 November 2026
 Persistent APK signing is deferred. Temporary debug APKs may be delivered for testing; signature compatibility and retained-data upgrades must be verified before claiming safe in-place updates. Never uninstall automatically or commit private keys. This supersedes the earlier Stage 0 signing blocker.
+
+## Stage 5.5 — Minimalist UX Refinement (owner-approved scope)
+This section supersedes earlier UI descriptions of optional titles, persistent save hints,
+metadata, inline trait panels, and save/discard prompts. No Stage 6 work is authorized.
+- Less UI, More Identity: home contains the continuous luminous rainbow, circular neon
+  add control and masonry note bodies; the add control reserves its own bottom space.
+- New notes have one body field and no generated title. Existing `title` columns/data
+  remain intact, hidden, with no Room version change or destructive migration.
+- Durable debounced recovery drafts (200ms), serialized note autosaves (800ms), and
+  lifecycle/Back flushes. Save waits for Room success then returns home; Back returns
+  to its previous destination after success. Failure retains input/draft and reports error.
+- An empty new editor creates no note. Temporarily clearing an existing note never
+  deletes/overwrites it with an empty note; its recovery draft remains available.
+- Dates display `d MMMM`, times `HH:mm`, in the current device timezone. Stored epoch
+  timestamps remain complete. Calendar year navigation is retained for selecting dates.
+- Reminder/Resurface/Capsule share one date sheet: cumulative +5 from the first tap,
+  calendar and clock icons, compact deadline, confirmation and removal. Reopening
+  preserves an existing timestamp until an explicit change. Capsule confirmation states
+  the irreversible lock; debounced typing commits never seal a pending capsule.
+- Reading shows body and Edit/Delete/Threads. Editor's traits sheet owns expressive and
+  temporal management plus Reminder Done/Snooze. Closed capsules retain a safe cover;
+  its schedule action opens only non-sensitive timing controls. Locked content is never
+  passed to previews, search or accessibility semantics.
+- Stage 5.5 PR must remain open/unmerged until the owner's five phone tests and approval.

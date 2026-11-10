@@ -52,7 +52,7 @@ fun TraitPicker(selected: ExpressiveTrait, enabled: Boolean, onSelect: (Expressi
     var open by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { open = true }, enabled = enabled,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-        Text(stringResource(R.string.trait_current, stringResource(selected.labelResource())))
+        Text(if (selected == ExpressiveTrait.NONE) "السمات" else stringResource(selected.labelResource()))
     }
     if (open) ModalBottomSheet(onDismissRequest = { open = false }, containerColor = BeeDesign.surface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = BeeDesign.page).padding(bottom = 24.dp)

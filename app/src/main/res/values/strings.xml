@@ -45,7 +45,7 @@
     <string name="note_saved">حُفظت الملاحظة على جهازك</string>
     <string name="trait_title">شخصية الملاحظة</string>
     <string name="trait_current">السمة: %1$s</string>
-    <string name="trait_none">بدون سمة</string>
+    <string name="trait_none">إزالة السمة</string>
     <string name="trait_glow">Glow — الوهج</string>
     <string name="trait_anger">Anger — الغضب</string>
     <string name="trait_save_hint">اختر سمة واحدة. تُحفظ مع الملاحظة عند الضغط على حفظ.</string>

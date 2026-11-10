@@ -6,10 +6,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
-fun formatNoteDate(timestamp: Long): String = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+fun formatNoteDate(timestamp: Long): String = DateTimeFormatter.ofPattern("d MMMM")
     .withLocale(Locale.forLanguageTag("ar")).withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(timestamp))
 
-fun formatNoteTimestamp(timestamp: Long): String = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+fun formatNoteTimestamp(timestamp: Long): String = DateTimeFormatter.ofPattern("d MMMM • HH:mm")
     .withLocale(Locale.forLanguageTag("ar")).withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(timestamp))
 
 /** Bounded lazy text blocks preserve every character, including newlines and surrogate pairs. */

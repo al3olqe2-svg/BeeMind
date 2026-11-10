@@ -23,6 +23,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.beemind.personal.domain.*
+import com.beemind.personal.ui.components.expressiveHalo
 import com.beemind.personal.ui.theme.BeeDesign
 
 /** Search only the same redacted projection that can be rendered. Never query private text. */
@@ -44,7 +45,7 @@ fun ThreadsSection(vm: DetailViewModel, onOpen: (String) -> Unit, enabled: Boole
             Icon(Icons.Default.Share, null, tint = BeeDesign.accent, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(8.dp))
             Text("الخيوط", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).semantics { heading() })
-            TextButton(onClick = { picker = true }, enabled = enabled, modifier = Modifier.testTag("manage_threads")) {
+            TextButton(onClick = { picker = true }, enabled = enabled, modifier = Modifier.testTag("add_thread")) {
                 Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Text("ربط فكرة")
             }
         }
@@ -85,22 +86,15 @@ private fun ThreadCard(note: NoteSummary, modifier: Modifier, enabled: Boolean, 
 
 @Composable
 private fun ThreadPreview(note: NoteSummary) {
-    val label = if (note.locked) "كبسولة مغلقة" else note.title?.takeIf { it.isNotBlank() } ?: "فكرة بلا عنوان"
-    Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
     if (note.locked) {
-        note.unlockAt?.let { Text("تُفتح: ${formatNoteTimestamp(it)}", style = MaterialTheme.typography.bodySmall, color = BeeDesign.secondary) }
+        Text("كبسولة مغلقة", style = MaterialTheme.typography.titleSmall)
+        note.unlockAt?.let { Text(formatNoteTimestamp(it), style = MaterialTheme.typography.bodySmall, color = BeeDesign.secondary) }
     } else if (note.preview.isNotBlank()) {
-        Text(note.preview, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = BeeDesign.secondary)
+        Box(Modifier.expressiveHalo(note.expressiveTrait).padding(4.dp)) {
+            Text(note.preview, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+        }
     }
-    // Compact expressive cues keep cards quiet; functional traits remain independent.
-    val trait = when (note.expressiveTrait) {
-        ExpressiveTrait.GLOW -> "◌ Glow — الوهج"
-        ExpressiveTrait.ANGER -> "◌ Anger — الغضب"
-        ExpressiveTrait.NONE -> null
-    }
-    trait?.let { Text(it, style = MaterialTheme.typography.labelSmall,
-        color = if (note.expressiveTrait == ExpressiveTrait.ANGER) MaterialTheme.colorScheme.error else BeeDesign.accent) }
-    if (note.reminderDueAt != null) Text("◷ تذكير", style = MaterialTheme.typography.labelSmall, color = BeeDesign.secondary)
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -65,13 +65,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          name="BeeMind-0.6.0-build-${BEEMIND_VERSION_CODE}-${SIGNING_LABEL}"
+          name="BeeMind-0.6.5-build-${BEEMIND_VERSION_CODE}-${SIGNING_LABEL}"
           cp app/build/outputs/apk/debug/app-debug.apk "dist/$name.apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "dist/$name.apk" > "dist/$name-certificate.txt"
           (cd dist && sha256sum "$name.apk" > "$name.apk.sha256")
           echo "ARTIFACT_NAME=$name" >> "$GITHUB_ENV"
           {
-            echo "### BeeMind 0.6.0 / build $BEEMIND_VERSION_CODE"
+            echo "### BeeMind 0.6.5 / build $BEEMIND_VERSION_CODE"
             echo "Signing: $SIGNING_LABEL"
             echo "Application ID: com.beemind.personal"
             echo 'APK signature verified; unit tests and lint passed.'
@@ -143,6 +143,8 @@ jobs:
             grep -q 'OK (1 test)' temporal-device.txt
             adb shell am instrument -w -r -e class com.beemind.personal.ThreadsDeviceTest com.beemind.personal.test/androidx.test.runner.AndroidJUnitRunner | tee threads-device.txt
             grep -q 'OK (1 test)' threads-device.txt
+            adb shell am instrument -w -r -e class com.beemind.personal.EditorDeviceTest com.beemind.personal.test/androidx.test.runner.AndroidJUnitRunner | tee editor-device.txt
+            grep -q 'OK (1 test)' editor-device.txt
             python3 tools/reminder_device_check.py
       - uses: actions/upload-artifact@v4
         if: always()
@@ -152,4 +154,5 @@ jobs:
             app/build/reports/reminder-device/
             temporal-device.txt
             threads-device.txt
+            editor-device.txt
           if-no-files-found: warn
