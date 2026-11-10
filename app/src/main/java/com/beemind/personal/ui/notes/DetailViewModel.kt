@@ -33,7 +33,11 @@ class DetailViewModel(private val repository: NotesRepository, private val id: S
         catch (e: CancellationException) { throw e }
         catch (_: Exception) { mutableTemporalError.value = true }
     } }
-    fun readableOpened() { viewModelScope.launch { repository.opened(id) } }
+    fun readableOpened() { viewModelScope.launch {
+        try { repository.opened(id); mutableTemporalError.value = false }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { mutableTemporalError.value = true }
+    } }
     fun retry() { reload.value += 1 }
     fun confirmDelete(show: Boolean) {
         if (!mutableDelete.value.busy) mutableDelete.update { it.copy(confirming = show, error = false) }

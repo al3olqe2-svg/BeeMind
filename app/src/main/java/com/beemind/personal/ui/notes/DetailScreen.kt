@@ -82,6 +82,10 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                                 Text((if (note.resurfaceSeenAt != null) "عودة تمت مشاهدتها: " else "موعد العودة: ") + reminderTimestamp(due),
                                     style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent)
                             } }
+                            if (temporalError) item(key = "return_error") {
+                                Text("تعذر حفظ حالة العودة. حاول مجددًا.", color = MaterialTheme.colorScheme.error)
+                                TextButton(onClick = vm::readableOpened) { Text("إعادة المحاولة") }
+                            }
                             item(key = "dates") {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(stringResource(R.string.created_date, formatNoteTimestamp(note.createdAt)),

@@ -177,6 +177,15 @@ class EditorViewModelTest {
         restored.requestExit(); assertTrue(restored.state.value.confirmExit)
     }
 
+    @Test fun failedSeenWriteIsReportedWithoutCrashingOrChangingText() = runTest {
+        val repo = object : NotesRepository by FakeRepository() {
+            override suspend fun opened(id: String) { error("Injected write failure") }
+        }
+        val vm = com.beemind.personal.ui.notes.DetailViewModel(repo, "note").also { store.put("detail", it) }
+        vm.readableOpened()
+        assertTrue(vm.temporalError.value)
+    }
+
     private class FakeRepository : NotesRepository {
         val notes = linkedMapOf<String, Note>()
         var draft: EditorDraft? = null
