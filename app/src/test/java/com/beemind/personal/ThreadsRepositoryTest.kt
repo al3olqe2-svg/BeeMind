@@ -84,7 +84,7 @@ class ThreadsRepositoryTest {
         assertTrue(repo.observeThreadNotes("b", false).first().none { it.note.id == "b" })
         clock.now += 100; repo.refreshTime()
         val readable = linked("a").single().note
-        assertFalse(readable.locked); assertTrue(readable.preview.length <= 420)
+        assertFalse(readable.locked); assertTrue(readable.preview.codePointCount(0, readable.preview.length) <= 420)
         assertNull(repo.getNote("b")!!.resurfaceSeenAt) // Merely displayed, never consumed.
         repo.opened("b"); assertNotNull(repo.getNote("b")!!.resurfaceSeenAt)
         repo.setLinked("a", "b", false)
@@ -115,7 +115,7 @@ class ThreadsRepositoryTest {
         }
         val readStart = System.nanoTime()
         val list = linked("n0")
-        assertEquals(199, list.size); assertTrue(list.all { it.note.preview.length <= 420 && it.note.title.orEmpty().length <= 160 })
+        assertEquals(199, list.size); assertTrue(list.all { it.note.preview.codePointCount(0, it.note.preview.length) <= 420 && it.note.title.orEmpty().codePointCount(0, it.note.title.orEmpty().length) <= 160 })
         val readMs = (System.nanoTime() - readStart) / 1_000_000
         println("Threads synthetic: 200 long notes / 199 links, bounded query ${readMs}ms, fixture + query ${(System.nanoTime() - start) / 1_000_000}ms; not a phone frame benchmark")
         val plan = db.openHelper.writableDatabase.query("EXPLAIN QUERY PLAN SELECT highId FROM note_links WHERE lowId = 'n0' UNION ALL SELECT lowId FROM note_links WHERE highId = 'n0'")

@@ -33,7 +33,8 @@ class NotesExperienceTest {
         get() = ApplicationProvider.getApplicationContext<BeeMindApplication>().notesRepository
 
     private fun waitForTag(tag: String) {
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        try { compose.waitUntil(15_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() } }
+        catch (e: androidx.compose.ui.test.ComposeTimeoutException) { screenshot("failure-$tag"); throw e }
     }
     private fun openNew() {
         compose.waitUntil(15_000) { compose.onAllNodesWithText("اكتب أول ملاحظة").fetchSemanticsNodes().isNotEmpty() }
@@ -374,6 +375,13 @@ class NotesExperienceTest {
         // A -> B -> A returns to B with Android Navigation; there is no recursive rendering.
         compose.onNodeWithContentDescription("رجوع").performClick()
         waitForTag("thread_open_a")
+        repeat(4) {
+            compose.onNodeWithTag("thread_open_a").performScrollTo().performClick()
+            waitForTag("thread_open_b")
+            compose.onNodeWithTag("thread_open_b").performScrollTo().performClick()
+            waitForTag("thread_open_a")
+        }
+        assertEquals(2, runBlocking { repository.observeThreadNotes("b", true).first().size })
         compose.activityRule.scenario.recreate(); waitForTag("thread_open_a")
         compose.onNodeWithTag("thread_remove_a").performScrollTo().performClick()
         compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("b", true).first().none { it.note.id == "a" } } }
@@ -402,7 +410,7 @@ class NotesExperienceTest {
         waitForTag("thread_open_capsule")
         compose.onAllNodesWithText("محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
         compose.onNodeWithTag("thread_open_capsule").performScrollTo().performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("كبسولة مغلقة").fetchSemanticsNodes().isNotEmpty() }
+        waitForTag("thread_open_plain")
         compose.onNodeWithContentDescription("تعديل الملاحظة").assertIsNotEnabled()
         compose.onAllNodesWithText("محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
         screenshot("stage5-capsule-via-thread")
@@ -414,11 +422,10 @@ class NotesExperienceTest {
         org.robolectric.RuntimeEnvironment.setFontScale(1.5f)
         compose.activityRule.scenario.recreate()
         runBlocking {
-            repository.save("a", "فكرة", "نص", true, "a")
             for (i in 0 until 25) repository.save("b$i", "فكرة عربية طويلة $i", "معاينة لفكرة مستقلة", true, "b$i")
+            repository.save("a", "فكرة", "نص", true, "a")
         }
-        waitForTag("notes_grid")
-        compose.onNodeWithTag("notes_grid").performScrollToNode(hasTestTag("note_a"))
+        waitForTag("note_a")
         compose.onNodeWithTag("note_a").performClick()
         waitForTag("manage_threads"); compose.onNodeWithTag("manage_threads").performScrollTo().performClick()
         waitForTag("thread_search")
@@ -431,6 +438,23 @@ class NotesExperienceTest {
         compose.onNodeWithTag("thread_candidate_b24").performClick()
         compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("a", true).first().size == 1 } }
         compose.onNodeWithContentDescription("إغلاق اختيار الخيوط").assertIsDisplayed().performClick()
+    }
+
+    @Test fun reminderOpeningAnotherNoteFromThreadDetailsUsesTheTargetViewModel() {
+        runBlocking {
+            repository.save("a", "ملاحظة البداية", "محتوى البداية", true, "a")
+            repository.save("b", "هدف الإشعار", "محتوى هدف الإشعار", true, "b", ExpressiveTrait.GLOW,
+                com.beemind.personal.domain.ReminderEdit(true, System.currentTimeMillis() + 3600000))
+            repository.setLinked("a", "b", true)
+        }
+        waitForTag("note_a"); compose.onNodeWithTag("note_a").performClick()
+        waitForTag("thread_open_b")
+        val generation = runBlocking { repository.getNote("b")!!.reminder!!.generation }
+        compose.runOnIdle { compose.activity.reminderOpen.value = "b" to generation }
+        waitForTag("thread_open_a")
+        compose.onNodeWithText("هدف الإشعار").performScrollTo().assertIsDisplayed()
+        assertEquals(generation, runBlocking { repository.getNote("b")!!.reminder!!.generation })
+        compose.onAllNodesWithTag("thread_open_b").assertCountEquals(0)
     }
 
 }

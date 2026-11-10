@@ -55,8 +55,12 @@ fun BeeMindApp() {
         reminderOpen?.let { (id, generation) ->
             try {
                 val reminder = (context.applicationContext as BeeMindApplication).database.reminderDao().get(id)
-                if (reminder?.generation == generation) nav.navigate("note/${android.net.Uri.encode(id)}") { launchSingleTop = true }
-                else snackbar.showSnackbar("تغيّر التذكير أو حُذفت الملاحظة. افتح الملاحظة من الصفحة الرئيسية.")
+                if (reminder?.generation == generation) {
+                    val current = nav.currentBackStackEntry
+                    if (current?.destination?.route != "note/{noteId}" || current.arguments?.getString("noteId") != id) {
+                        nav.navigate("note/${android.net.Uri.encode(id)}")
+                    }
+                } else snackbar.showSnackbar("تغيّر التذكير أو حُذفت الملاحظة. افتح الملاحظة من الصفحة الرئيسية.")
             } catch (e: CancellationException) { throw e
             } catch (_: Exception) { snackbar.showSnackbar("تعذر فتح الملاحظة. حاول من الصفحة الرئيسية.") }
 
@@ -105,15 +109,13 @@ fun BeeMindApp() {
             }
             composable("note/{noteId}") { entry ->
                 val id = requireNotNull(entry.arguments?.getString("noteId"))
-                val vm: DetailViewModel = viewModel(factory = viewModelFactory { initializer { DetailViewModel(repository, id) } })
+                val vm: DetailViewModel = viewModel(key = id, factory = viewModelFactory { initializer { DetailViewModel(repository, id) } })
                 val content by vm.content.collectAsStateWithLifecycle()
                 val deletion by vm.deletion.collectAsStateWithLifecycle()
                 DetailScreen(vm, content, deletion, onBack = { goBack(entry) }, onEdit = { openEditor(id, entry) }, onOpenLinked = { linkedId ->
                     scope.launch {
                         if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
-                            if (nav.currentBackStackEntry === entry) nav.navigate("note/${android.net.Uri.encode(linkedId)}") {
-                                launchSingleTop = true
-                            }
+                            if (nav.currentBackStackEntry === entry) nav.navigate("note/${android.net.Uri.encode(linkedId)}")
                         }
                     }
                 })
