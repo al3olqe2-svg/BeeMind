@@ -72,9 +72,15 @@ def tap_notification_action(text):
         if matches:
             node = matches[0]
         else:
-            buttons = [n for n in nodes if n.get('resource-id', '').endswith('/expand_button')]
-            assert buttons, 'No notification action or expansion button'
-            node = buttons[min(attempt, len(buttons) - 1)]
+            # Expand only BeeMind's group/child rows. Do not toggle a Collapse arrow
+            # or unrelated Android System notifications after the group shrinks.
+            rows = [n for n in nodes if n.get('resource-id', '').endswith('/expandableNotificationRow')
+                    and any('BeeMind' in child.get('text', '') for child in n.iter('node'))]
+            buttons = [child for row in rows for child in row.iter('node')
+                       if child.get('resource-id', '').endswith('/expand_button')
+                       and child.get('content-desc') == 'Expand']
+            assert buttons, 'No BeeMind notification action or collapsed BeeMind row'
+            node = buttons[0]
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', node.attrib['bounds']))
         adb('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
         if matches:
