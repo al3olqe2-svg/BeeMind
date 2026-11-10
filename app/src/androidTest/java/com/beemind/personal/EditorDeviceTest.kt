@@ -32,7 +32,7 @@ class EditorDeviceTest {
             lateinit var vm: EditorViewModel
             main { vm = EditorViewModel(repo, "session", null); ViewModelStore().also { stores += it; it.put("vm", vm) } }
             await { !vm.state.value.loading }
-            main { vm.body.edit { append("بداية 🌈") }; vm.persistOnBackground() }
+            main { vm.body.edit { append("بداية 🌈") }; androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications() }
             withTimeout(10000) { while (repo.getNote("session") == null) delay(20) }
             val original = repo.getNote("session")!!
             assertNull(original.title)

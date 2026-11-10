@@ -23,6 +23,17 @@ class EditorViewModelTest {
     private fun editor(repo: FakeRepository): EditorViewModel = EditorViewModel(repo, "session", null)
         .also { store.put("editor", it) }
 
+    @Test fun typingDebouncePersistsDraftThenCommitsWithoutDeparture() = runTest {
+        val repo = FakeRepository(); val vm = editor(repo)
+        vm.body.edit { append("حفظ بلا مغادرة") }
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+        runCurrent(); advanceTimeBy(201); runCurrent()
+        assertEquals("حفظ بلا مغادرة", repo.draft!!.body)
+        assertTrue(repo.notes.isEmpty())
+        advanceTimeBy(600); runCurrent()
+        assertEquals("حفظ بلا مغادرة", repo.notes["session"]!!.body)
+        assertNull(vm.state.value.savedId)
+    }
     @Test fun titlelessBackCommitsLastCharactersWithoutConfirmation() = runTest {
         val repo = FakeRepository(); val vm = editor(repo)
         vm.body.edit { append("آخر حرف ي") }

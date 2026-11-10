@@ -246,7 +246,13 @@ class NotesExperienceTest {
 
     @Test fun actualTypingDebounceCommitsAndManualSaveDoesNotDuplicate() {
         openNew(); compose.onNodeWithTag("editor_body").performTextInput("حفظ تلقائي أثناء الكتابة")
-        compose.waitUntil(15000) { runBlocking { repository.observeNotes().first().isNotEmpty() } }
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(1, java.util.concurrent.TimeUnit.SECONDS)
+        compose.waitUntil(15000) {
+            // Robolectric's paused Android Handler clock is separate from Compose frames.
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            compose.waitForIdle()
+            runBlocking { repository.observeNotes().first().isNotEmpty() }
+        }
         val id = runBlocking { repository.observeNotes().first().single().id }
         compose.onNodeWithTag("editor_body").performTextInput(" وآخر حرف")
         compose.onNodeWithTag("save_note").performClick(); home()
