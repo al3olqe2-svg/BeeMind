@@ -37,7 +37,7 @@ def kill_cached():
         # importance. Kill only this debuggable fixture UID; do not mark package stopped.
         pid = result.stdout.strip()
         assert pid.isdigit()
-        adb('shell', 'run-as', PACKAGE, 'kill', '-9', pid)
+        adb('shell', 'kill', '-9', pid)
         time.sleep(2)
         check = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
         assert not check.stdout.strip(), 'Target process did not die: ' + check.stdout
@@ -76,6 +76,9 @@ def tap_notification_action(text):
     raise AssertionError('Could not find notification action: ' + text)
 
 assert adb('shell', 'getprop', 'ro.kernel.qemu').strip() == '1', 'Emulator required'
+print(adb('root'), flush=True)
+adb('wait-for-device')
+assert adb('shell', 'id', '-u').strip() == '0', 'Rootable Google APIs emulator required'
 try:
     sdk = int(adb('shell', 'getprop', 'ro.build.version.sdk').strip())
     if sdk >= 33:
