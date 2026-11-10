@@ -278,4 +278,40 @@ class NotesExperienceTest {
             assertEquals(3, repository.observeNotes().first().size)
         }
     }
+    @Test fun capsuleReviewLocksEditorDetailsGridAndAccessibilityThenOpensWithoutRestart() {
+        openNew()
+        compose.onNodeWithTag("editor_title").performTextInput("عنوان كبسولتي السري")
+        compose.onNodeWithTag("editor_body").performTextInput("محتوى لا يظهر قبل الموعد")
+        compose.onNodeWithText("◈ كبسولة زمنية").performClick()
+        compose.onNodeWithText("2 د").performClick()
+        compose.onNodeWithText("اعتماد الموعد في المسودة").performScrollTo().performClick()
+        compose.onNodeWithTag("save_note").performClick()
+        compose.onNodeWithText("إغلاق رسالتك إلى المستقبل؟").assertIsDisplayed()
+        screenshot("stage4-capsule-review")
+        compose.onNodeWithText("تأكيد الإغلاق والحفظ").performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("كبسولة مغلقة").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithText("عنوان كبسولتي السري", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithText("محتوى لا يظهر قبل الموعد", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithContentDescription("تعديل الملاحظة").assertIsNotEnabled()
+        screenshot("stage4-capsule-locked")
+        compose.onNodeWithContentDescription("رجوع").performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithTag("new_note").fetchSemanticsNodes().isNotEmpty() }
+        screenshot("stage4-capsule-home")
+        val id = runBlocking { repository.observeNotes().first().single().id }
+        compose.onNodeWithTag("note_$id").performClick()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("كبسولة مغلقة").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithText("عنوان كبسولتي السري", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        // Simulate the deadline using synthetic fixture metadata, preserving all stored text.
+        runBlocking {
+            val app = ApplicationProvider.getApplicationContext<BeeMindApplication>()
+            app.database.notesDao().seal(id, System.currentTimeMillis() - 1)
+            repository.refreshTime()
+        }
+        compose.waitUntil(15000) { compose.onAllNodesWithText("عنوان كبسولتي السري").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("محتوى لا يظهر قبل الموعد").assertIsDisplayed()
+        compose.onNodeWithContentDescription("تعديل الملاحظة").assertIsEnabled()
+        screenshot("stage4-capsule-unlocked")
+    }
+
 }

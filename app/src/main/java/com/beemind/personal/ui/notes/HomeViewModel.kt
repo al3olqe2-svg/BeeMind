@@ -21,6 +21,6 @@ class HomeViewModel(repository: NotesRepository) : ViewModel() {
         combine(repository.observeNotes(), repository.observeLatestDraft()) { notes, draft ->
             HomeState.Ready(notes, draft) as HomeState
         }.onStart { emit(HomeState.Loading) }.catch { emit(HomeState.Error) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState.Loading)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 0, replayExpirationMillis = 0), HomeState.Loading)
     fun retry() { reload.value += 1 }
 }

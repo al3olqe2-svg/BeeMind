@@ -15,9 +15,12 @@ data class NoteEntity(
     val createdAt: Long,
     val updatedAt: Long,
     @ColumnInfo(defaultValue = "'NONE'") val expressiveTrait: ExpressiveTrait = ExpressiveTrait.NONE,
+    @ColumnInfo(defaultValue = "NULL") val resurfaceAt: Long? = null,
+    @ColumnInfo(defaultValue = "NULL") val resurfaceSeenAt: Long? = null,
+    @ColumnInfo(defaultValue = "NULL") val unlockAt: Long? = null,
 ) {
     fun toNote() = Note(id, title, body, createdAt, updatedAt, expressiveTrait)
 }
 
 /** Small rows keep very long diary text out of Android's bounded CursorWindow. */
-data class NoteHeader(val id: String, val createdAt: Long, val updatedAt: Long, val titleBytes: Int?, val bodyBytes: Int, val expressiveTrait: ExpressiveTrait)
+data class NoteHeader(val id: String, val createdAt: Long, val updatedAt: Long, val titleBytes: Int?, val bodyBytes: Int, val expressiveTrait: ExpressiveTrait, val resurfaceAt: Long?, val resurfaceSeenAt: Long?, val unlockAt: Long?)

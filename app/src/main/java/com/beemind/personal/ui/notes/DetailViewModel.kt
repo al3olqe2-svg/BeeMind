@@ -23,9 +23,17 @@ class DetailViewModel(private val repository: NotesRepository, private val id: S
     val content = reload.flatMapLatest {
         repository.observeNote(id).map { DetailContent.Ready(it) as DetailContent }
             .onStart { emit(DetailContent.Loading) }.catch { emit(DetailContent.Error) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DetailContent.Loading)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 0, replayExpirationMillis = 0), DetailContent.Loading)
     private val mutableDelete = MutableStateFlow(DeleteState())
     val deletion = mutableDelete.asStateFlow()
+    private val mutableTemporalError = MutableStateFlow(false)
+    val temporalError = mutableTemporalError.asStateFlow()
+    fun scheduleResurface(dueAt: Long?) { viewModelScope.launch {
+        try { repository.scheduleResurface(id, dueAt); mutableTemporalError.value = false }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { mutableTemporalError.value = true }
+    } }
+    fun readableOpened() { viewModelScope.launch { repository.opened(id) } }
     fun retry() { reload.value += 1 }
     fun confirmDelete(show: Boolean) {
         if (!mutableDelete.value.busy) mutableDelete.update { it.copy(confirming = show, error = false) }

@@ -15,6 +15,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         val app = application as BeeMindApplication
+        app.notesRepository.refreshTime()
         app.reminderScope.launch {
             try { app.reminders.reconcile() } catch (_: Exception) { /* Retry on next lifecycle event. */ }
         }

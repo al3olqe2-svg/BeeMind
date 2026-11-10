@@ -48,7 +48,7 @@ fun ReminderPicker(edit: ReminderEdit, saved: Reminder?, enabled: Boolean, onSel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Unit) {
+fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Unit, temporalLabel: String? = null) {
     val zone = ZoneId.systemDefault()
     var reference by remember { mutableStateOf(Instant.now()) }
     var minutes by remember { mutableStateOf("5") }
@@ -74,12 +74,12 @@ private fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Reminder — موعد لفكرتك", style = MaterialTheme.typography.titleLarge)
+            Text(temporalLabel ?: "Reminder — موعد لفكرتك", style = MaterialTheme.typography.titleLarge)
             Text("الإعداد جزء من المسودة. لا يسري إلا بعد حفظ الملاحظة.", style = MaterialTheme.typography.bodySmall)
             Text("بعد مدة", style = MaterialTheme.typography.titleSmall)
             Text("تُحسب المدة من لحظة اختيارها. زر +5 يمدد الموعد نفسه.", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(5, 10, 30).forEach { n ->
+                listOf(2, 10, 30).forEach { n ->
                     OutlinedButton(onClick = { relative(n.toString(), true) }, modifier = Modifier.weight(1f)) { Text("$n د") }
                 }
             }
@@ -98,16 +98,16 @@ private fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long
             OutlinedButton(onClick = { timeOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("الوقت: ${time.format(DateTimeFormatter.ofPattern("HH:mm"))}") }
             Text(due?.let { "الموعد النهائي: ${reminderTimestamp(it)}" } ?: "اختر موعدًا مستقبليًا", color = MaterialTheme.colorScheme.primary)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            ReminderPermissions()
+            if (temporalLabel == null) ReminderPermissions()
             Button(onClick = {
                 val valid = due?.let { runCatching { ReminderTimes.future(it, Instant.now()) }.isSuccess } == true
                 if (!valid) error = "انقضى الموعد. اختر موعدًا مستقبليًا قبل تطبيقه."
                 else {
-                    if (Build.VERSION.SDK_INT >= 33 && !app.reminderNotifier.allowed()) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    if (temporalLabel == null && Build.VERSION.SDK_INT >= 33 && !app.reminderNotifier.allowed()) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     onSelect(due)
                 }
             }, enabled = due != null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("اعتماد الموعد في المسودة") }
-            if (initial != null) TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("إزالة التذكير عند حفظ الملاحظة") }
+            if (initial != null) TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text(if (temporalLabel == null) "إزالة التذكير عند حفظ الملاحظة" else "إلغاء هذه السمة في المسودة") }
         }
     }
     if (dateOpen) {
@@ -175,7 +175,7 @@ fun ReminderPermissions() {
 }
 
 @Composable
-fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit) {
+fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit, locked: Boolean = false) {
     if (reminder == null || reminder.status == "CANCELLED") return
     val app = LocalContext.current.applicationContext as BeeMindApplication
     val traceKey = com.beemind.personal.notifications.ReminderDiagnostics.key(reminder.noteId)
@@ -183,6 +183,7 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit) {
     val traceValue by traceFlow.collectAsStateWithLifecycle(initialValue = null)
     val trace = traceValue?.split('|')?.takeIf { it.size == 3 && it[0] == reminder.generation }
     val scope = app.reminderScope
+    var editLocked by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
     fun action(name: String) {
@@ -194,6 +195,15 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit) {
             finally { withContext(Dispatchers.Main) { busy = false } }
         }
     }
+    if (editLocked) ReminderSheet(reminder.dueAt, { editLocked = false }, { due ->
+        editLocked = false
+        scope.launch {
+            try { app.notesRepository.scheduleReminder(reminder.noteId, due) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { withContext(Dispatchers.Main) { error = true } }
+        }
+    })
+    val editAction = { if (locked) editLocked = true else onEdit() }
     Surface(shape = BeeDesign.card, color = BeeDesign.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("◷ Reminder — التذكير", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
@@ -228,10 +238,10 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit) {
                     TextButton(onClick = { action("SNOOZE") }, enabled = !busy) { Text("تأجيل 10 دقائق") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onEdit, enabled = !busy) { Text("تغيير الموعد") }
+                    TextButton(onClick = editAction, enabled = !busy) { Text("تغيير الموعد") }
                     TextButton(onClick = { action("CANCEL") }, enabled = !busy) { Text("إزالة التذكير") }
                 }
-            } else TextButton(onClick = onEdit) { Text("إعداد موعد جديد") }
+            } else TextButton(onClick = editAction) { Text("إعداد موعد جديد") }
             if (error) Text("تعذر تنفيذ الإجراء أو تغيّر التذكير. حاول مجددًا.", color = MaterialTheme.colorScheme.error)
         }
     }

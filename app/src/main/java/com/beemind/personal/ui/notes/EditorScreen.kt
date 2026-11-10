@@ -2,6 +2,8 @@ package com.beemind.personal.ui.notes
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,7 +40,14 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
         onDispose { lifecycle.removeObserver(observer) }
     }
     val focus = LocalFocusManager.current
-    val save = { focus.clearFocus(); vm.save() }
+    var review by remember { mutableStateOf(false) }
+    val save = { focus.clearFocus(); if (state.temporalEdit.sealUntil != null) { vm.stay(); review = true } else vm.save() }
+    if (state.lockedUntil != null) {
+        Scaffold(topBar = { TopAppBar(title = { Text("كبسولة زمنية") }, navigationIcon = { BeeBack(vm::requestExit, !state.busy) }) }) { padding ->
+            CapsuleCover(state.lockedUntil, Modifier.padding(padding).padding(24.dp))
+        }
+        return
+    }
     Scaffold(modifier = Modifier.imePadding(), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.editor_title), style = MaterialTheme.typography.titleMedium) },
             navigationIcon = { BeeBack(vm::requestExit, !state.busy) },
@@ -72,6 +81,14 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                         Box(Modifier.weight(1f)) { TraitPicker(state.expressiveTrait, !state.busy, vm::selectTrait) }
                         Box(Modifier.weight(1f)) { ReminderPicker(state.reminderEdit, state.savedReminder, !state.busy, vm::selectReminder) }
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val resurface = if (state.temporalEdit.resurfaceEdited) state.temporalEdit.resurfaceAt else state.savedResurfaceAt
+                        Box(Modifier.weight(1f)) { TemporalPicker("↗ العودة", resurface, !state.busy, vm::selectResurface) }
+                        Box(Modifier.weight(1f)) { TemporalPicker("◈ كبسولة زمنية", state.temporalEdit.sealUntil, !state.busy, vm::selectCapsule) }
+                    }
+                    val resurfaceDue = if (state.temporalEdit.resurfaceEdited) state.temporalEdit.resurfaceAt else state.savedResurfaceAt
+                    resurfaceDue?.let { Text("العودة: ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent) }
+                    state.temporalEdit.sealUntil?.let { Text("إغلاق حتى: ${reminderTimestamp(it)} • ستراجع المحتوى عند الحفظ", style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent) }
                     val reminderDue = if (state.reminderEdit.edited) state.reminderEdit.dueAt else state.savedReminder?.takeIf { it.active }?.dueAt
                     reminderDue?.let { Text("◷ ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary) }
@@ -102,6 +119,18 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
             }
         }
     }
+    if (review && state.temporalEdit.sealUntil != null) AlertDialog(
+        onDismissRequest = { if (!state.busy) review = false },
+        title = { Text("إغلاق رسالتك إلى المستقبل؟") },
+        text = { Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("لن تستطيع قراءة العنوان أو المحتوى أو تعديلهما حتى ${reminderTimestamp(state.temporalEdit.sealUntil)}. لا يمكن إلغاء القفل بعد تأكيده.")
+            Text("هذا قفل داخل التطبيق، وليس تشفيرًا.", style = MaterialTheme.typography.bodySmall)
+            Text(vm.title.text.toString(), style = MaterialTheme.typography.titleMedium)
+            Text(vm.body.text.toString(), style = MaterialTheme.typography.bodyMedium)
+            state.error?.let { Text("تعذر الإغلاق. تحقق من أن جميع المواعيد المختارة ما زالت في المستقبل، ثم حاول مجددًا.", color = MaterialTheme.colorScheme.error) }
+        } },
+        confirmButton = { TextButton(onClick = vm::save, enabled = !state.busy && state.canSave) { Text(if (state.busy) "جارٍ الإغلاق…" else "تأكيد الإغلاق والحفظ") } },
+        dismissButton = { TextButton(onClick = { review = false }, enabled = !state.busy) { Text("العودة للتعديل") } })
     if (state.confirmExit) AlertDialog(onDismissRequest = vm::stay,
         title = { Text(stringResource(R.string.unsaved_title)) },
         text = { Text(stringResource(R.string.unsaved_body)) },

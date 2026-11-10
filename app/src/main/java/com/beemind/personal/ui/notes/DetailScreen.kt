@@ -25,12 +25,23 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
     onBack: () -> Unit, onEdit: () -> Unit) {
     BackHandler(enabled = deletion.busy) { }
     LaunchedEffect(deletion.deleted) { if (deletion.deleted) onBack() }
+    val temporalError by vm.temporalError.collectAsState()
     val note = (content as? DetailContent.Ready)?.note
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, note?.id, note?.locked) {
+        fun opened() { if (note != null && !note.locked) vm.readableOpened() }
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) opened()
+        }
+        lifecycle.addObserver(observer)
+        if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) opened()
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     Scaffold(topBar = {
         TopAppBar(title = { Text(stringResource(R.string.note_details), style = MaterialTheme.typography.titleMedium) },
             navigationIcon = { BeeBack(onBack, !deletion.busy) }, actions = {
                 if (note != null) {
-                    IconButton(onClick = onEdit, enabled = !deletion.busy) {
+                    IconButton(onClick = onEdit, enabled = !deletion.busy && !note.locked) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_note))
                     }
                     IconButton(onClick = { vm.confirmDelete(true) }, enabled = !deletion.busy) {
@@ -47,6 +58,15 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
             is DetailContent.Ready -> {
                 if (note == null) Box(Modifier.padding(padding).padding(BeeDesign.page)) {
                     ErrorPanel(stringResource(R.string.note_missing))
+                } else if (note.locked) {
+                    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        item { CapsuleCover(checkNotNull(note.unlockAt)) }
+                        item { TemporalPicker("↗ العودة", note.resurfaceAt, !deletion.busy, vm::scheduleResurface) }
+                        note.resurfaceAt?.let { due -> item { Text("موعد العودة: ${reminderTimestamp(due)}", style = MaterialTheme.typography.bodySmall) } }
+                        if (temporalError) item { Text("تعذر حفظ الموعد. اختر وقتًا مستقبليًا وحاول مجددًا.", color = MaterialTheme.colorScheme.error) }
+                        item { ReminderDetails(note.reminder, onEdit, locked = true) }
+                    }
                 } else {
                     val chunks = remember(note.body) { readingChunks(note.body) }
                     SelectionContainer {
@@ -58,6 +78,10 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             }
                             item(key = "reminder") { ReminderDetails(note.reminder, onEdit) }
+                            note.resurfaceAt?.let { due -> item(key = "resurface") {
+                                Text((if (note.resurfaceSeenAt != null) "عودة تمت مشاهدتها: " else "موعد العودة: ") + reminderTimestamp(due),
+                                    style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent)
+                            } }
                             item(key = "dates") {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(stringResource(R.string.created_date, formatNoteTimestamp(note.createdAt)),

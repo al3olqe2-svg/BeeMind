@@ -130,6 +130,43 @@ class EditorViewModelTest {
     }
 
     /** Fault injection only; the shipped application always uses RoomNotesRepository. */
+    @Test fun lockedIdCannotLoadTextOrDraftAndCannotSave() = runTest {
+        val repo = FakeRepository().apply {
+            notes["locked"] = Note("locked", null, "", 1, 1, unlockAt = 10000, locked = true)
+            draft = EditorDraft("session", "locked", "محتوى قديم", "لا تعرضه", 1)
+        }
+        val vm = EditorViewModel(repo, "session", "locked").also { store.put("locked", it) }
+        assertEquals(10000L, vm.state.value.lockedUntil)
+        assertEquals("", vm.title.text.toString()); assertEquals("", vm.body.text.toString())
+        vm.save(); vm.persistOnBackground()
+        assertEquals(0, repo.saveCalls); assertEquals("لا تعرضه", repo.draft!!.body)
+    }
+    @Test fun successfulSealClearsLiveTextOnlyAfterCommitAndFailurePreservesDraft() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val repo = FakeRepository().apply { saveGate = gate }
+        val vm = editor(repo)
+        vm.title.edit { append("رسالة") }; vm.body.edit { append("خاصة") }
+        vm.selectCapsule(10000)
+        vm.save()
+        assertTrue(vm.state.value.busy)
+        assertEquals("خاصة", vm.body.text.toString())
+        gate.complete(Unit)
+        assertEquals("", vm.body.text.toString()); assertEquals("", vm.title.text.toString())
+        assertEquals(10000L, vm.state.value.lockedUntil)
+        assertEquals("session", vm.state.value.savedId)
+    }
+    @Test fun temporalDraftRestoresScheduleAndBackProtection() = runTest {
+        val repo = FakeRepository()
+        val vm = editor(repo)
+        vm.body.edit { append("إلى المستقبل") }
+        vm.selectResurface(5000); vm.selectCapsule(10000)
+        vm.persistOnBackground(); advanceUntilIdle()
+        assertEquals(TemporalEdit(true, 5000, 10000), repo.draft!!.temporalEdit)
+        val restored = editor(repo)
+        assertEquals(repo.draft!!.temporalEdit, restored.state.value.temporalEdit)
+        restored.requestExit(); assertTrue(restored.state.value.confirmExit)
+    }
+
     private class FakeRepository : NotesRepository {
         val notes = linkedMapOf<String, Note>()
         var draft: EditorDraft? = null
@@ -149,12 +186,12 @@ class EditorViewModelTest {
         override suspend fun latestDraftForNote(noteId: String): DraftSummary? = null
         override suspend fun putDraft(draft: EditorDraft) { this.draft = draft }
         override suspend fun discardDraft(sessionId: String) { discardCalls++; draft = null }
-        override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String, expressiveTrait: ExpressiveTrait, reminderEdit: ReminderEdit): Note {
+        override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String, expressiveTrait: ExpressiveTrait, reminderEdit: ReminderEdit, temporalEdit: TemporalEdit): Note {
             saveCalls++
             saveGate?.await()
             if (failSave) throw IllegalStateException("Injected write failure")
             return Note(id, title, body, 1, 1, expressiveTrait, if (reminderEdit.edited && reminderEdit.dueAt != null)
-                Reminder(id, reminderEdit.dueAt, "SCHEDULED", "test") else null).also { notes[id] = it }
+                Reminder(id, reminderEdit.dueAt, "SCHEDULED", "test") else null, unlockAt = temporalEdit.sealUntil, locked = temporalEdit.sealUntil != null).also { notes[id] = it }
         }
         override suspend fun delete(id: String) { notes.remove(id) }
     }

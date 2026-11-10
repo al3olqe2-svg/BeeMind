@@ -116,7 +116,12 @@ private fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag("note_${note.id}")
                 .semantics { traversalIndex = index.toFloat() + 1; stateDescription = traitLabel + (note.reminderDueAt?.let { "، تذكير: ${reminderTimestamp(it)}" } ?: "") }) {
-            Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (note.locked) {
+                if (note.resurfaced) Text("↗ عادت للواجهة", Modifier.padding(16.dp), color = BeeDesign.accent,
+                    style = MaterialTheme.typography.labelLarge)
+                CapsuleCover(checkNotNull(note.unlockAt))
+            } else Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (note.resurfaced) Text("↗ عادت للواجهة", color = BeeDesign.accent, style = MaterialTheme.typography.labelLarge)
                 if (!note.title.isNullOrBlank()) {
                     Text(note.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
