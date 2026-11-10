@@ -13,7 +13,15 @@ OUT.mkdir(parents=True, exist_ok=True)
 PACKAGE = 'com.beemind.personal'
 
 def adb(*args):
-    return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT)
+    # An Android shell command must not consume the whole CI job if adbd/AMS stalls.
+    timeout = 180 if 'instrument' in args else 45
+    return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT, timeout=timeout)
+
+def evidence(name, *args):
+    try:
+        (OUT / name).write_text(adb(*args))
+    except (subprocess.SubprocessError, OSError) as error:
+        (OUT / name).write_text(str(error))
 
 def snapshot():
     # Read private synthetic Room/WAL after each short phase without opening BeeMind.
@@ -23,7 +31,7 @@ def snapshot():
         if path.exists():
             path.unlink()
     for name in ['beemind.db', 'beemind.db-wal']:
-        result = subprocess.run(['adb', 'exec-out', 'run-as', PACKAGE, 'cat', 'databases/' + name], capture_output=True)
+        result = subprocess.run(['adb', 'exec-out', 'run-as', PACKAGE, 'cat', 'databases/' + name], capture_output=True, timeout=45)
         path = OUT / name
         if result.returncode == 0:
             path.write_bytes(result.stdout)
@@ -37,7 +45,7 @@ def kill_cached():
     adb('shell', 'input', 'keyevent', 'KEYCODE_HOME')
     adb('shell', 'am', 'kill', PACKAGE)  # deliberately NOT force-stop
     time.sleep(2)
-    result = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
+    result = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True, timeout=45)
     if result.stdout.strip():
         # am kill can decline while the recently hidden Activity still has foreground
         # importance. Kill only this debuggable fixture UID; do not mark package stopped.
@@ -45,7 +53,7 @@ def kill_cached():
         assert pid.isdigit()
         adb('shell', 'kill', '-9', pid)
         time.sleep(2)
-        check = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
+        check = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True, timeout=45)
         assert not check.stdout.strip(), 'Target process did not die: ' + check.stdout
     print('Confirmed: no BeeMind process or Activity', flush=True)
 
@@ -106,7 +114,9 @@ try:
     assert 'OK (1 test)' in seed
     # Android finishes instrumentation by force-stopping the target. Explicitly open ONCE
     # to restore its alarms; never restart instrumentation during delivery verification.
+    print('Opening Activity for initial scheduling', flush=True)
     adb('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity')
+    print('Checking persisted alarm scheduling', flush=True)
     wait_for(lambda: all(r['scheduling'] == 'EXACT' for r in snapshot().values()), 15, 'initial scheduling')
     initial = snapshot()
     assert len(initial) == 2 and all(r['delivery'] == 'PENDING' for r in initial.values())
@@ -142,8 +152,9 @@ try:
         assert db.execute("SELECT count(*) FROM notes WHERE expressiveTrait = 'GLOW'").fetchone()[0] == 2
     print('PASS: native cold delivery, actual ten-minute snooze in Doze, notes retained', flush=True)
 finally:
-    (OUT / 'logcat.txt').write_text(adb('logcat', '-d'))
-    (OUT / 'alarms.txt').write_text(adb('shell', 'dumpsys', 'alarm'))
-    (OUT / 'notifications.txt').write_text(adb('shell', 'dumpsys', 'notification', '--noredact'))
-    adb('shell', 'dumpsys', 'deviceidle', 'unforce')
-    adb('shell', 'dumpsys', 'battery', 'reset')
+    evidence('logcat.txt', 'logcat', '-d')
+    evidence('alarms.txt', 'shell', 'dumpsys', 'alarm')
+    evidence('notifications.txt', 'shell', 'dumpsys', 'notification', '--noredact')
+    evidence('activities.txt', 'shell', 'dumpsys', 'activity', 'activities')
+    evidence('idle-cleanup.txt', 'shell', 'dumpsys', 'deviceidle', 'unforce')
+    evidence('battery-cleanup.txt', 'shell', 'dumpsys', 'battery', 'reset')
