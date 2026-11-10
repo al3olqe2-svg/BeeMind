@@ -53,6 +53,10 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                         LazyColumn(Modifier.fillMaxSize().padding(padding),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            item(key = "trait") {
+                                Text(stringResource(R.string.trait_current, stringResource(note.expressiveTrait.labelResource())),
+                                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            }
                             item(key = "dates") {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(stringResource(R.string.created_date, formatNoteTimestamp(note.createdAt)),

@@ -35,7 +35,7 @@ class NotesRepositoryTest {
     }
     private fun open() {
         database = Room.databaseBuilder(context, BeeMindDatabase::class.java, name)
-            .addMigrations(BeeMindDatabase.MIGRATION_1_2).build()
+            .addMigrations(BeeMindDatabase.MIGRATION_1_2, BeeMindDatabase.MIGRATION_2_3).build()
         repository = RoomNotesRepository(database, clock)
     }
     @After fun close() { database.close(); context.deleteDatabase(name) }
@@ -89,6 +89,9 @@ class NotesRepositoryTest {
             assertTrue(withTimeout(10_000) { events.receive() }.isEmpty())
             repository.save("reactive", "تفاعلية", "", true, "s")
             assertEquals("reactive", withTimeout(10_000) { events.receive() }.single().id)
+            repository.save("reactive", "تفاعلية", "", false, "s", ExpressiveTrait.GLOW)
+            assertEquals(ExpressiveTrait.GLOW, withTimeout(10_000) { events.receive() }.single().expressiveTrait)
+            assertEquals(ExpressiveTrait.GLOW, repository.observeNote("reactive").first()!!.expressiveTrait)
             repository.putDraft(EditorDraft("edit", "reactive", "تغيير", "نص", 10))
             repository.delete("reactive")
             assertTrue(withTimeout(10_000) { events.receive() }.isEmpty())
@@ -131,6 +134,39 @@ class NotesRepositoryTest {
         repository.save("huge", "نص يتجاوز حجم نافذة SQLite", text, true, "huge-draft")
         database.close(); open()
         assertEquals(text, repository.getNote("huge")!!.body)
+    }
+
+    @Test fun expressiveTransitionsPersistWithoutChangingIdentityTextOrOrder() = runBlocking {
+        val original = repository.save("traits", "عنوان عربي", "محتوى 🌈", true, "s")
+        assertEquals(ExpressiveTrait.NONE, original.expressiveTrait)
+        repository.save("newer", "أحدث", "", true, "n", ExpressiveTrait.ANGER)
+        for (trait in listOf(ExpressiveTrait.GLOW, ExpressiveTrait.ANGER, ExpressiveTrait.GLOW, ExpressiveTrait.NONE)) {
+            val saved = repository.save("traits", "عنوان عربي", "محتوى 🌈", false, "s", trait)
+            assertEquals(original.id, saved.id)
+            assertEquals(original.createdAt, saved.createdAt)
+            assertEquals(original.title, saved.title)
+            assertEquals(original.body, saved.body)
+            database.close(); open()
+            assertEquals(saved, repository.getNote("traits"))
+            assertEquals(trait, repository.observeNotes().first().single { it.id == "traits" }.expressiveTrait)
+            assertEquals(listOf("newer", "traits"), repository.observeNotes().first().map { it.id })
+        }
+        for (trait in ExpressiveTrait.entries) {
+            val saved = repository.save(trait.name, "سمة", "", true, "s", trait)
+            assertEquals(trait, repository.getNote(saved.id)!!.expressiveTrait)
+        }
+        assertEquals(3, ExpressiveTrait.entries.size)
+    }
+
+    @Test fun expressiveDraftSurvivesDatabaseReopenAndDeletionClearsIt() = runBlocking {
+        repository.save("a", "أصل", "نص", true, "s", ExpressiveTrait.GLOW)
+        val draft = EditorDraft("edit", "a", "تعديل", "نص محفوظ كمسودة", 42, ExpressiveTrait.ANGER)
+        repository.putDraft(draft)
+        database.close(); open()
+        assertEquals(draft, repository.getDraft("edit"))
+        assertEquals(ExpressiveTrait.GLOW, repository.getNote("a")!!.expressiveTrait)
+        repository.delete("a")
+        assertNull(repository.getDraft("edit"))
     }
 
     private class MutableClock(var now: Long = 1_000_000) : Clock() {

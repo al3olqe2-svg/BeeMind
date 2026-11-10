@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beemind.personal.R
 
-/** Stage 1.5: quiet cosmic surfaces, with Pride reserved for identity and touch. */
+/** Stage 1.5: quiet cosmic surfaces, with Pride for identity, touch, and explicitly selected expressive traits. */
 object BeeDesign {
     val page = 24.dp
     val gap = 12.dp
@@ -30,6 +30,9 @@ object BeeDesign {
     val accent = Color(0xFFC3B8F5)
     val spectrum = listOf(Color(0xFFE98A87), Color(0xFFEDAE7E), Color(0xFFE8D78B),
         Color(0xFF8DD0AD), Color(0xFF89B9E8), Color(0xFFB39AE8))
+    val glowEdge = Brush.sweepGradient(listOf(Color(0xFFFF719A), Color(0xFFFFC66D),
+        Color(0xFFDCEB83), Color(0xFF65E5BF), Color(0xFF70BDFF), Color(0xFFC792FF), Color(0xFFFF719A)))
+    val angerEdge = Brush.linearGradient(listOf(Color(0xFFB82C4E), Color(0xFFFF6E79), Color(0xFFE43F51), Color(0xFF9C2846)))
     val rainbow = Brush.linearGradient(spectrum)
     val atmosphere = Brush.verticalGradient(listOf(Color(0xFF131827), background, background))
     // Script-aware merged OFL fonts; see tools/build_fonts.py and licenses/fonts.

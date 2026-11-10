@@ -67,6 +67,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                         }))
                         TextButton(onClick = vm::clearError) { Text(stringResource(R.string.dismiss_error)) }
                     }
+                    TraitPicker(state.expressiveTrait, !state.busy, vm::selectTrait)
                     val titleLabel = stringResource(R.string.title_hint)
                     BasicTextField(state = vm.title, enabled = !state.busy,
                         textStyle = MaterialTheme.typography.headlineMedium.copy(color = MaterialTheme.colorScheme.onSurface, textDirection = TextDirection.ContentOrRtl),
