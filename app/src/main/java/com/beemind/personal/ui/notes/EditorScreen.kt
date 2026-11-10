@@ -75,7 +75,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("editor_title").semantics { contentDescription = titleLabel },
                         decorator = { inner -> Box(Modifier.padding(vertical = 8.dp)) {
                             if (vm.title.text.isEmpty()) Text(titleLabel, style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.outline)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                             inner()
                         } })
                     Box(Modifier.fillMaxWidth().height(3.dp).background(BeeDesign.rainbow, BeeDesign.card))
@@ -87,7 +87,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                         modifier = Modifier.fillMaxWidth().weight(1f).padding(bottom = 16.dp).testTag("editor_body").semantics { contentDescription = bodyLabel },
                         decorator = { inner -> Box(Modifier.fillMaxSize().padding(top = 8.dp)) {
                             if (vm.body.text.isEmpty()) Text(bodyLabel, style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.outline)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                             inner()
                         } })
                 }
