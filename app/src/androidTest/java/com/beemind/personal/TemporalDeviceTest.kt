@@ -23,7 +23,7 @@ class TemporalDeviceTest {
         context.deleteDatabase(name)
         val sqlite = context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null)
         try {
-            val schema = org.json.JSONObject(context.assets.open("com.beemind.personal.data.local.BeeMindDatabase/4.json")
+            val schema = org.json.JSONObject(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets.open("com.beemind.personal.data.local.BeeMindDatabase/4.json")
                 .bufferedReader().use { it.readText() }).getJSONObject("database")
             val entities = schema.getJSONArray("entities")
             for (i in 0 until entities.length()) {

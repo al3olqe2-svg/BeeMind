@@ -328,6 +328,8 @@ class NotesExperienceTest {
         assertNull(runBlocking { repository.getNote("older")!!.resurfaceSeenAt })
         screenshot("stage4-resurface-due")
         compose.onNodeWithTag("note_older").performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى الفكرة").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
         compose.waitUntil(15000) { runBlocking { repository.getNote("older")!!.resurfaceSeenAt != null } }
         compose.onNodeWithContentDescription("رجوع").performClick()
         waitForTag("note_newer")
