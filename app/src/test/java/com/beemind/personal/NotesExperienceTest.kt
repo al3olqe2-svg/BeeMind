@@ -266,6 +266,12 @@ class NotesExperienceTest {
         openNote("reminder"); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
         traits(); compose.onNodeWithText("تأجيل 10 دقائق").performScrollTo().performClick()
         compose.waitUntil(15000) { runBlocking { repository.getNote("reminder")!!.reminder!!.status == "SNOOZED" } }
+        val snoozed = runBlocking { repository.getNote("reminder")!!.reminder!! }
+        // Wait for the UI to observe Snooze's new generation, not just the Room commit.
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText(com.beemind.personal.ui.components.reminderTimestamp(snoozed.dueAt)).fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodes(hasText("إنجاز") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("إنجاز").performScrollTo().performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("تم إنجازه").fetchSemanticsNodes().isNotEmpty() }
         closeTraits(); compose.onNodeWithTag("save_note").performClick(); home()
