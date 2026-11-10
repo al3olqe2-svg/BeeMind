@@ -20,6 +20,7 @@ android {
     buildToolsVersion = "35.0.0"
     defaultConfig {
         applicationId = "com.beemind.personal"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
@@ -77,6 +78,8 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation("androidx.test:runner:1.6.2")
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
