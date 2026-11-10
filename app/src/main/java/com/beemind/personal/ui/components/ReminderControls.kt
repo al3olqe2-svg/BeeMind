@@ -48,7 +48,7 @@ fun ReminderPicker(edit: ReminderEdit, saved: Reminder?, enabled: Boolean, onSel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Unit, temporalLabel: String? = null) {
+fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Unit, temporalLabel: String? = null, isDraft: Boolean = true) {
     val zone = ZoneId.systemDefault()
     var reference by remember { mutableStateOf(Instant.now()) }
     var minutes by remember { mutableStateOf("5") }
@@ -75,11 +75,11 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(temporalLabel ?: "Reminder — موعد لفكرتك", style = MaterialTheme.typography.titleLarge)
-            Text("الإعداد جزء من المسودة. لا يسري إلا بعد حفظ الملاحظة.", style = MaterialTheme.typography.bodySmall)
+            Text(if (isDraft) "الإعداد جزء من المسودة. لا يسري إلا بعد حفظ الملاحظة." else "يُحفظ الموعد مباشرة دون فتح محتوى الكبسولة.", style = MaterialTheme.typography.bodySmall)
             Text("بعد مدة", style = MaterialTheme.typography.titleSmall)
             Text("تُحسب المدة من لحظة اختيارها. زر +5 يمدد الموعد نفسه.", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(2, 10, 30).forEach { n ->
+                (if (temporalLabel == null) listOf(5, 10, 30) else listOf(2, 10, 30)).forEach { n ->
                     OutlinedButton(onClick = { relative(n.toString(), true) }, modifier = Modifier.weight(1f)) { Text("$n د") }
                 }
             }
@@ -106,8 +106,8 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
                     if (temporalLabel == null && Build.VERSION.SDK_INT >= 33 && !app.reminderNotifier.allowed()) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     onSelect(due)
                 }
-            }, enabled = due != null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("اعتماد الموعد في المسودة") }
-            if (initial != null) TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text(if (temporalLabel == null) "إزالة التذكير عند حفظ الملاحظة" else "إلغاء هذه السمة في المسودة") }
+            }, enabled = due != null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(if (isDraft) "اعتماد الموعد في المسودة" else "حفظ الموعد") }
+            if (initial != null) TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text(if (!isDraft) "إلغاء هذا الموعد" else if (temporalLabel == null) "إزالة التذكير عند حفظ الملاحظة" else "إلغاء هذه السمة في المسودة") }
         }
     }
     if (dateOpen) {
@@ -202,7 +202,7 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit, locked: Boolean = f
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) { withContext(Dispatchers.Main) { error = true } }
         }
-    })
+    }, isDraft = false)
     val editAction = { if (locked) editLocked = true else onEdit() }
     Surface(shape = BeeDesign.card, color = BeeDesign.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

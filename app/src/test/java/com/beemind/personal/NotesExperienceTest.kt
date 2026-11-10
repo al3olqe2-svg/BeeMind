@@ -314,4 +314,26 @@ class NotesExperienceTest {
         screenshot("stage4-capsule-unlocked")
     }
 
+    @Test fun resurfaceBadgePersistsOnGridUntilReadableDetailsAreOpened() {
+        runBlocking {
+            repository.save("older", "فكرة تعود", "محتوى الفكرة", true, "s1", ExpressiveTrait.ANGER)
+            repository.save("newer", "فكرة جديدة", "الأحدث", true, "s2")
+            val app = ApplicationProvider.getApplicationContext<BeeMindApplication>()
+            app.database.notesDao().reschedule("older", System.currentTimeMillis() - 1)
+            repository.refreshTime()
+        }
+        waitForTag("note_older")
+        compose.waitUntil(15000) { compose.onAllNodesWithText("↗ عادت للواجهة").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals("older", runBlocking { repository.observeNotes().first().first().id })
+        assertNull(runBlocking { repository.getNote("older")!!.resurfaceSeenAt })
+        screenshot("stage4-resurface-due")
+        compose.onNodeWithTag("note_older").performClick()
+        compose.waitUntil(15000) { runBlocking { repository.getNote("older")!!.resurfaceSeenAt != null } }
+        compose.onNodeWithContentDescription("رجوع").performClick()
+        waitForTag("note_newer")
+        compose.onAllNodesWithText("↗ عادت للواجهة").assertCountEquals(0)
+        assertEquals("newer", runBlocking { repository.observeNotes().first().first().id })
+        assertEquals(ExpressiveTrait.ANGER, runBlocking { repository.getNote("older")!!.expressiveTrait })
+    }
+
 }

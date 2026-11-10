@@ -195,7 +195,7 @@ class EditorViewModel(
 
     fun requestExit() {
         if (mutableState.value.busy || closed) return
-        if (mutableState.value.loading || mutableState.value.loadFailed) {
+        if (mutableState.value.loading || mutableState.value.loadFailed || mutableState.value.lockedUntil != null) {
             // Unknown text must never be interpreted as an empty draft to discard.
             closed = true
             mutableState.update { it.copy(exited = true) }

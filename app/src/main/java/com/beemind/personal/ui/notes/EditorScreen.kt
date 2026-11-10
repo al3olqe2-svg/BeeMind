@@ -2,9 +2,9 @@ package com.beemind.personal.ui.notes
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -122,12 +122,12 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
     if (review && state.temporalEdit.sealUntil != null) AlertDialog(
         onDismissRequest = { if (!state.busy) review = false },
         title = { Text("إغلاق رسالتك إلى المستقبل؟") },
-        text = { Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("لن تستطيع قراءة العنوان أو المحتوى أو تعديلهما حتى ${reminderTimestamp(state.temporalEdit.sealUntil)}. لا يمكن إلغاء القفل بعد تأكيده.")
-            Text("هذا قفل داخل التطبيق، وليس تشفيرًا.", style = MaterialTheme.typography.bodySmall)
-            Text(vm.title.text.toString(), style = MaterialTheme.typography.titleMedium)
-            Text(vm.body.text.toString(), style = MaterialTheme.typography.bodyMedium)
-            state.error?.let { Text("تعذر الإغلاق. تحقق من أن جميع المواعيد المختارة ما زالت في المستقبل، ثم حاول مجددًا.", color = MaterialTheme.colorScheme.error) }
+        text = { LazyColumn(Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text("لن تستطيع قراءة العنوان أو المحتوى أو تعديلهما حتى ${reminderTimestamp(state.temporalEdit.sealUntil)}. لا يمكن إلغاء القفل بعد تأكيده.") }
+            item { Text("هذا قفل داخل التطبيق، وليس تشفيرًا.", style = MaterialTheme.typography.bodySmall) }
+            item { Text(vm.title.text.toString(), style = MaterialTheme.typography.titleMedium) }
+            itemsIndexed(readingChunks(vm.body.text.toString())) { _, chunk -> Text(chunk, style = MaterialTheme.typography.bodyMedium) }
+            state.error?.let { item { Text("تعذر الإغلاق. تحقق من أن جميع المواعيد المختارة ما زالت في المستقبل، ثم حاول مجددًا.", color = MaterialTheme.colorScheme.error) } }
         } },
         confirmButton = { TextButton(onClick = vm::save, enabled = !state.busy && state.canSave) { Text(if (state.busy) "جارٍ الإغلاق…" else "تأكيد الإغلاق والحفظ") } },
         dismissButton = { TextButton(onClick = { review = false }, enabled = !state.busy) { Text("العودة للتعديل") } })

@@ -62,7 +62,7 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item { CapsuleCover(checkNotNull(note.unlockAt)) }
-                        item { TemporalPicker("↗ العودة", note.resurfaceAt, !deletion.busy, vm::scheduleResurface) }
+                        item { TemporalPicker("↗ العودة", note.resurfaceAt, !deletion.busy, vm::scheduleResurface, isDraft = false) }
                         note.resurfaceAt?.let { due -> item { Text("موعد العودة: ${reminderTimestamp(due)}", style = MaterialTheme.typography.bodySmall) } }
                         if (temporalError) item { Text("تعذر حفظ الموعد. اختر وقتًا مستقبليًا وحاول مجددًا.", color = MaterialTheme.colorScheme.error) }
                         item { ReminderDetails(note.reminder, onEdit, locked = true) }

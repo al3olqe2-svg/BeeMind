@@ -18,11 +18,11 @@ import androidx.compose.ui.unit.dp
 import com.beemind.personal.ui.theme.BeeDesign
 
 @Composable
-fun TemporalPicker(label: String, dueAt: Long?, enabled: Boolean, onSelect: (Long?) -> Unit) {
+fun TemporalPicker(label: String, dueAt: Long?, enabled: Boolean, onSelect: (Long?) -> Unit, isDraft: Boolean = true) {
     var open by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { open = true }, enabled = enabled,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(label) }
-    if (open) ReminderSheet(dueAt, { open = false }, { onSelect(it); open = false }, label)
+    if (open) ReminderSheet(dueAt, { open = false }, { onSelect(it); open = false }, label, isDraft)
 }
 
 /** No original note content is accepted by this component, including semantics. */
@@ -46,5 +46,13 @@ fun CapsuleCover(unlockAt: Long, modifier: Modifier = Modifier) {
         Text("رسالة إلى المستقبل", style = MaterialTheme.typography.titleMedium)
         Text("تُفتح في ${reminderTimestamp(unlockAt)}", style = MaterialTheme.typography.bodySmall)
         Text("المحتوى مخفي حتى موعده", style = MaterialTheme.typography.bodySmall, color = BeeDesign.secondary)
+    }
+}
+
+@Composable
+fun ResurfaceBadge() {
+    Box(Modifier.background(Brush.horizontalGradient(listOf(Color(0xFF28394A), Color(0xFF3B2E53))), BeeDesign.button)
+        .padding(horizontal = 10.dp, vertical = 6.dp)) {
+        Text("↗ عادت للواجهة", color = BeeDesign.ink, style = MaterialTheme.typography.labelLarge)
     }
 }

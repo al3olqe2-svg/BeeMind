@@ -87,7 +87,7 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
                         item(span = StaggeredGridItemSpan.FullLine, key = "empty") { EmptyNotes(onCreate) }
                     } else {
                         item(span = StaggeredGridItemSpan.FullLine, key = "order") {
-                            Text(stringResource(R.string.note_count, state.notes.size), style = MaterialTheme.typography.labelLarge,
+                            Text(if (state.notes.any { it.resurfaced }) "${state.notes.size} ملاحظة • العائدة أولًا، ثم الأحدث إنشاءً" else stringResource(R.string.note_count, state.notes.size), style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                         }
                         itemsIndexed(state.notes, key = { _, note -> note.id }, contentType = { _, _ -> "note" }) { index, note ->
@@ -117,11 +117,10 @@ private fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag("note_${note.id}")
                 .semantics { traversalIndex = index.toFloat() + 1; stateDescription = traitLabel + (note.reminderDueAt?.let { "، تذكير: ${reminderTimestamp(it)}" } ?: "") }) {
             if (note.locked) {
-                if (note.resurfaced) Text("↗ عادت للواجهة", Modifier.padding(16.dp), color = BeeDesign.accent,
-                    style = MaterialTheme.typography.labelLarge)
+                if (note.resurfaced) Box(Modifier.padding(12.dp)) { ResurfaceBadge() }
                 CapsuleCover(checkNotNull(note.unlockAt))
             } else Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (note.resurfaced) Text("↗ عادت للواجهة", color = BeeDesign.accent, style = MaterialTheme.typography.labelLarge)
+                if (note.resurfaced) ResurfaceBadge()
                 if (!note.title.isNullOrBlank()) {
                     Text(note.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
