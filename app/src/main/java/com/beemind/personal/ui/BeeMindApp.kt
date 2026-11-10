@@ -34,6 +34,20 @@ fun BeeMindApp() {
     val context = LocalContext.current
     val repository = (context.applicationContext as BeeMindApplication).notesRepository
     val nav = rememberNavController()
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, repository) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) repository.refreshTime()
+        }
+        lifecycle.addObserver(observer)
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, intent: android.content.Intent?) { repository.refreshTime() }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(context, receiver, android.content.IntentFilter().apply {
+            addAction(android.content.Intent.ACTION_TIME_CHANGED); addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
+        }, androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+        onDispose { lifecycle.removeObserver(observer); context.unregisterReceiver(receiver) }
+    }
     val activity = context as com.beemind.personal.MainActivity
     val reminderOpen by activity.reminderOpen.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }

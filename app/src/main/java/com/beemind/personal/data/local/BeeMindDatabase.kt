@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [FoundationEntity::class, NoteEntity::class, EditorDraftEntity::class, ReminderEntity::class], version = 4, exportSchema = true)
+@Database(entities = [FoundationEntity::class, NoteEntity::class, EditorDraftEntity::class, ReminderEntity::class], version = 5, exportSchema = true)
 @TypeConverters(TraitConverters::class)
 abstract class BeeMindDatabase : RoomDatabase() {
     abstract fun foundationDao(): FoundationDao
@@ -39,8 +39,19 @@ abstract class BeeMindDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notes ADD COLUMN resurfaceAt INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE notes ADD COLUMN resurfaceSeenAt INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE notes ADD COLUMN unlockAt INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE editor_drafts ADD COLUMN resurfaceEdited INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE editor_drafts ADD COLUMN resurfaceAt INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE editor_drafts ADD COLUMN sealUntil INTEGER DEFAULT NULL")
+            }
+        }
+
         fun create(context: Context): BeeMindDatabase = Room.databaseBuilder(
             context.applicationContext, BeeMindDatabase::class.java, "beemind.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
     }
 }

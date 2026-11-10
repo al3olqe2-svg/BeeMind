@@ -93,6 +93,27 @@ class AndroidRemindersTest {
         assertNotNull(app.notesRepository.getNote("broadcast"))
         app.notesRepository.delete("broadcast")
     }
+    @Test fun capsuleReminderNotificationAndPendingIntentsContainNoNoteText() = runBlocking {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        val now = System.currentTimeMillis()
+        val repo = app.notesRepository
+        repo.save("capsule", "TOP_SECRET_TITLE", "TOP_SECRET_BODY", true, "s",
+            reminderEdit = com.beemind.personal.domain.ReminderEdit(true, now + 1000),
+            temporalEdit = com.beemind.personal.domain.TemporalEdit(sealUntil = now + 600000))
+        val reminder = app.database.reminderDao().get("capsule")!!
+        app.reminderNotifier.show(reminder)
+        val n = app.getSystemService(NotificationManager::class.java).activeNotifications.single().notification
+        assertFalse(n.extras.toString().contains("TOP_SECRET"))
+        assertFalse(n.publicVersion.extras.toString().contains("TOP_SECRET"))
+        val open = shadowOf(n.contentIntent).savedIntent
+        assertFalse(open.toUri(0).contains("TOP_SECRET"))
+        n.actions.forEach { assertFalse(shadowOf(it.actionIntent).savedIntent.toUri(0).contains("TOP_SECRET")) }
+        assertTrue(repo.getNote(open.getStringExtra("noteId")!!)!!.locked)
+        repo.scheduleReminder("capsule", now + 2000)
+        assertEquals(0, app.getSystemService(NotificationManager::class.java).activeNotifications.size)
+        assertTrue(repo.getNote("capsule")!!.locked)
+        repo.delete("capsule")
+    }
     @Test fun bootReceiverRestoresPersistedFutureAlarm() = runBlocking {
         val repo = app.notesRepository
         repo.save("boot", "إقلاع", "", true, "s", reminderEdit = com.beemind.personal.domain.ReminderEdit(true, System.currentTimeMillis() + 600_000))

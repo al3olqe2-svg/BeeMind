@@ -42,10 +42,10 @@ class MigrationTest {
         helper.writableDatabase.execSQL("INSERT INTO app_metadata (`key`, value) VALUES (?, ?)", arrayOf("preserve", preserved))
         helper.close()
         val room = Room.databaseBuilder(context, BeeMindDatabase::class.java, name)
-            .addMigrations(BeeMindDatabase.MIGRATION_1_2, BeeMindDatabase.MIGRATION_2_3, BeeMindDatabase.MIGRATION_3_4).build()
+            .addMigrations(BeeMindDatabase.MIGRATION_1_2, BeeMindDatabase.MIGRATION_2_3, BeeMindDatabase.MIGRATION_3_4, BeeMindDatabase.MIGRATION_4_5).build()
         try {
             val db = room.openHelper.writableDatabase // Room validates the complete migrated schema here.
-            assertEquals(4, db.version)
+            assertEquals(5, db.version)
             db.query("SELECT value FROM app_metadata WHERE `key` = 'preserve'").use {
                 assertTrue(it.moveToFirst()); assertEquals(preserved, it.getString(0))
             }
@@ -78,13 +78,13 @@ class MigrationTest {
         helper.writableDatabase.execSQL("INSERT INTO editor_drafts VALUES (?, ?, ?, ?, ?)", arrayOf<Any>("draft", "old", "مسودة", text, 789L))
         helper.close()
         val room = Room.databaseBuilder(context, BeeMindDatabase::class.java, name)
-            .addMigrations(BeeMindDatabase.MIGRATION_2_3, BeeMindDatabase.MIGRATION_3_4).build()
+            .addMigrations(BeeMindDatabase.MIGRATION_2_3, BeeMindDatabase.MIGRATION_3_4, BeeMindDatabase.MIGRATION_4_5).build()
         try {
             val repo = com.beemind.personal.data.RoomNotesRepository(room)
             val note = requireNotNull(repo.getNote("old"))
             assertEquals(com.beemind.personal.domain.Note("old", "عنوان", text, 123L, 456L), note)
             assertEquals(com.beemind.personal.domain.EditorDraft("draft", "old", "مسودة", text, 789L), repo.getDraft("draft"))
-            assertEquals(4, room.openHelper.writableDatabase.version)
+            assertEquals(5, room.openHelper.writableDatabase.version)
             room.openHelper.writableDatabase.query("PRAGMA integrity_check").use {
                 assertTrue(it.moveToFirst()); assertEquals("ok", it.getString(0))
             }
@@ -115,16 +115,68 @@ class MigrationTest {
         helper.writableDatabase.execSQL("INSERT INTO editor_drafts VALUES (?, ?, ?, ?, ?, ?)", arrayOf<Any>("draft", "old", "مسودة", text, 789L, "ANGER"))
         helper.close()
         val room = Room.databaseBuilder(context, BeeMindDatabase::class.java, name)
-            .addMigrations(BeeMindDatabase.MIGRATION_2_3, BeeMindDatabase.MIGRATION_3_4).build()
+            .addMigrations(BeeMindDatabase.MIGRATION_2_3, BeeMindDatabase.MIGRATION_3_4, BeeMindDatabase.MIGRATION_4_5).build()
         try {
             val repo = com.beemind.personal.data.RoomNotesRepository(room)
             val note = requireNotNull(repo.getNote("old"))
             assertEquals(com.beemind.personal.domain.Note("old", "عنوان", text, 123L, 456L, com.beemind.personal.domain.ExpressiveTrait.GLOW), note)
             assertEquals(com.beemind.personal.domain.EditorDraft("draft", "old", "مسودة", text, 789L, com.beemind.personal.domain.ExpressiveTrait.ANGER), repo.getDraft("draft"))
-            assertEquals(4, room.openHelper.writableDatabase.version)
+            assertEquals(5, room.openHelper.writableDatabase.version)
             room.openHelper.writableDatabase.query("PRAGMA integrity_check").use {
                 assertTrue(it.moveToFirst()); assertEquals("ok", it.getString(0))
             }
+        } finally { room.close(); context.deleteDatabase(name) }
+    }
+
+    @Test fun actualVersionFourNotesTraitsRemindersAndDraftsMigrateWithoutLoss() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "migration-v4.db"
+        context.deleteDatabase(name)
+        val schema = JSONObject(File("schemas/com.beemind.personal.data.local.BeeMindDatabase/4.json").readText()).getJSONObject("database")
+        val helper = FrameworkSQLiteOpenHelperFactory().create(SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(name).callback(object : SupportSQLiteOpenHelper.Callback(4) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    val entities = schema.getJSONArray("entities")
+                    for (i in 0 until entities.length()) {
+                        val e = entities.getJSONObject(i)
+                        db.execSQL(e.getString("createSql").replace("\${TABLE_NAME}", e.getString("tableName")))
+                        val indices = e.optJSONArray("indices") ?: org.json.JSONArray()
+                        for (j in 0 until indices.length()) db.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", e.getString("tableName")))
+                    }
+                    val queries = schema.getJSONArray("setupQueries")
+                    for (i in 0 until queries.length()) db.execSQL(queries.getString(i))
+                }
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = error("Unexpected upgrade")
+            }).build())
+        val sqlite = helper.writableDatabase
+        listOf("NONE", "GLOW", "ANGER").forEachIndexed { i, trait ->
+            sqlite.execSQL("INSERT INTO notes VALUES (?, ?, ?, ?, ?, ?)", arrayOf<Any>("n$i", "عنوان $i", "نص $i 🌈", 123L + i, 456L + i, trait))
+            sqlite.execSQL("INSERT INTO reminders VALUES (?, ?, ?, ?, ?, ?, ?)", arrayOf<Any>("n$i", 1800000000000L + i, listOf("SCHEDULED", "SNOOZED", "DONE")[i], "generation$i", "DELIVERED", 789L, "EXACT"))
+        }
+        sqlite.execSQL("INSERT INTO editor_drafts VALUES (?, ?, ?, ?, ?, ?, ?, ?)", arrayOf<Any>("draft", "n1", "مسودة", "تعديل محفوظ", 900L, "ANGER", 1, 1800000001000L))
+        helper.close()
+        val room = Room.databaseBuilder(context, BeeMindDatabase::class.java, name).addMigrations(BeeMindDatabase.MIGRATION_4_5).build()
+        try {
+            val repo = com.beemind.personal.data.RoomNotesRepository(room)
+            listOf("NONE", "GLOW", "ANGER").forEachIndexed { i, trait ->
+                val n = repo.getNote("n$i")!!
+                assertEquals("عنوان $i", n.title); assertEquals("نص $i 🌈", n.body)
+                assertEquals(123L + i, n.createdAt); assertEquals(456L + i, n.updatedAt)
+                assertEquals(trait, n.expressiveTrait.name)
+                assertNull(n.resurfaceAt); assertNull(n.unlockAt); assertFalse(n.locked)
+                val r = room.reminderDao().get("n$i")!!
+                assertEquals(listOf("SCHEDULED", "SNOOZED", "DONE")[i], r.status)
+                assertEquals("generation$i", r.generation); assertEquals("EXACT", r.scheduling)
+                assertEquals(1800000000000L + i, r.dueAt); assertEquals("DELIVERED", r.delivery)
+                assertEquals(789L, r.deliveredAt)
+            }
+            val draft = repo.getDraft("draft")!!
+            assertEquals("تعديل محفوظ", draft.body)
+            assertEquals(com.beemind.personal.domain.ReminderEdit(true, 1800000001000L), draft.reminderEdit)
+            assertEquals(com.beemind.personal.domain.TemporalEdit(), draft.temporalEdit)
+            assertEquals(5, room.openHelper.writableDatabase.version)
+            room.openHelper.writableDatabase.query("PRAGMA integrity_check").use { assertTrue(it.moveToFirst()); assertEquals("ok", it.getString(0)) }
+            room.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { assertFalse(it.moveToFirst()) }
         } finally { room.close(); context.deleteDatabase(name) }
     }
 

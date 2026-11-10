@@ -11,7 +11,7 @@ val hasSigning = signingValues.values.all { !it.isNullOrBlank() }
 require(signingValues.values.none { !it.isNullOrBlank() } || hasSigning) {
     "Provide all four BeeMind signing variables or none."
 }
-val buildNumber = providers.environmentVariable("BEEMIND_VERSION_CODE").orElse("1").get().toInt()
+val buildNumber = providers.environmentVariable("BEEMIND_VERSION_CODE").orElse("30").get().toInt()
 require(buildNumber in 1..2100000000) { "Invalid Android versionCode" }
 
 android {
@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.4.0"
+        versionName = "0.5.0"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {
@@ -47,6 +47,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    sourceSets.getByName("androidTest").assets.srcDir("schemas")
     buildFeatures { compose = true }
     testOptions { unitTests.isIncludeAndroidResources = true }
     lint {
