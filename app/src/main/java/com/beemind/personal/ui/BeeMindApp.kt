@@ -108,7 +108,15 @@ fun BeeMindApp() {
                 val vm: DetailViewModel = viewModel(factory = viewModelFactory { initializer { DetailViewModel(repository, id) } })
                 val content by vm.content.collectAsStateWithLifecycle()
                 val deletion by vm.deletion.collectAsStateWithLifecycle()
-                DetailScreen(vm, content, deletion, onBack = { goBack(entry) }, onEdit = { openEditor(id, entry) })
+                DetailScreen(vm, content, deletion, onBack = { goBack(entry) }, onEdit = { openEditor(id, entry) }, onOpenLinked = { linkedId ->
+                    scope.launch {
+                        if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
+                            if (nav.currentBackStackEntry === entry) nav.navigate("note/${android.net.Uri.encode(linkedId)}") {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                })
             }
             composable("editor/{sessionId}?noteId={noteId}", arguments = listOf(navArgument("noteId") { type = NavType.StringType; nullable = true; defaultValue = null })) { entry ->
                 val session = requireNotNull(entry.arguments?.getString("sessionId"))

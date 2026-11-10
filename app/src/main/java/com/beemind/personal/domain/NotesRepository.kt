@@ -3,6 +3,8 @@ package com.beemind.personal.domain
 import kotlinx.coroutines.flow.Flow
 
 interface NotesRepository {
+    fun observeThreadNotes(id: String, linkedOnly: Boolean): Flow<List<ThreadNote>>
+    suspend fun setLinked(a: String, b: String, linked: Boolean)
     fun observeNotes(): Flow<List<NoteSummary>>
     fun observeNote(id: String): Flow<Note?>
     fun observeLatestDraft(): Flow<DraftSummary?>

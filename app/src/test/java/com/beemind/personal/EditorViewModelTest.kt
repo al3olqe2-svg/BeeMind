@@ -187,6 +187,8 @@ class EditorViewModelTest {
     }
 
     private class FakeRepository : NotesRepository {
+        override fun observeThreadNotes(id: String, linkedOnly: Boolean) = kotlinx.coroutines.flow.flowOf(emptyList<com.beemind.personal.domain.ThreadNote>())
+        override suspend fun setLinked(a: String, b: String, linked: Boolean) { error("Not used by editor tests") }
         val notes = linkedMapOf<String, Note>()
         var draft: EditorDraft? = null
         var failLoad = false

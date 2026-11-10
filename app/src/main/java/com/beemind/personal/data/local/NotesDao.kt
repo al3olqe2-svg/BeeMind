@@ -9,10 +9,12 @@ import com.beemind.personal.domain.DraftSummary
 import com.beemind.personal.domain.NoteSummary
 import kotlinx.coroutines.flow.Flow
 
+internal const val NOTE_SUMMARY_COLUMNS = "n.id, CASE WHEN n.unlockAt > :now THEN NULL ELSE substr(n.title, 1, 160) END AS title, CASE WHEN n.unlockAt > :now THEN '' ELSE substr(n.body, 1, 420) END AS preview, n.createdAt, n.updatedAt, n.expressiveTrait, n.resurfaceAt, n.resurfaceSeenAt, n.unlockAt, CASE WHEN n.unlockAt > :now THEN 1 ELSE 0 END AS locked, CASE WHEN n.resurfaceAt <= :now AND n.resurfaceSeenAt IS NULL THEN 1 ELSE 0 END AS resurfaced, CASE WHEN r.status IN ('SCHEDULED','SNOOZED') THEN r.dueAt ELSE NULL END AS reminderDueAt"
+
 @Dao
 interface NotesDao {
     // Bounded projection keeps full diaries out of the home screen's memory/layout work.
-    @Query("SELECT n.id, CASE WHEN n.unlockAt > :now THEN NULL ELSE substr(n.title, 1, 160) END AS title, CASE WHEN n.unlockAt > :now THEN '' ELSE substr(n.body, 1, 420) END AS preview, n.createdAt, n.updatedAt, n.expressiveTrait, n.resurfaceAt, n.resurfaceSeenAt, n.unlockAt, CASE WHEN n.unlockAt > :now THEN 1 ELSE 0 END AS locked, CASE WHEN n.resurfaceAt <= :now AND n.resurfaceSeenAt IS NULL THEN 1 ELSE 0 END AS resurfaced, CASE WHEN r.status IN ('SCHEDULED','SNOOZED') THEN r.dueAt ELSE NULL END AS reminderDueAt FROM notes n LEFT JOIN reminders r ON r.noteId = n.id ORDER BY resurfaced DESC, CASE WHEN n.resurfaceAt <= :now AND n.resurfaceSeenAt IS NULL THEN n.resurfaceAt ELSE NULL END DESC, n.createdAt DESC, n.id ASC")
+    @Query("SELECT " + NOTE_SUMMARY_COLUMNS + " FROM notes n LEFT JOIN reminders r ON r.noteId = n.id ORDER BY resurfaced DESC, CASE WHEN n.resurfaceAt <= :now AND n.resurfaceSeenAt IS NULL THEN n.resurfaceAt ELSE NULL END DESC, n.createdAt DESC, n.id ASC")
     fun observeNotes(now: Long): Flow<List<NoteSummary>>
 
     @Query("SELECT id, createdAt, updatedAt, expressiveTrait, resurfaceAt, resurfaceSeenAt, unlockAt, length(CAST(title AS BLOB)) AS titleBytes, length(CAST(body AS BLOB)) AS bodyBytes FROM notes WHERE id = :id")
@@ -26,6 +28,9 @@ interface NotesDao {
 
     @Query("SELECT substr(CAST(title AS BLOB), :offset, :count) FROM notes WHERE id = :id")
     suspend fun readTitleChunk(id: String, offset: Int, count: Int): ByteArray?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM notes WHERE id = :id)")
+    suspend fun exists(id: String): Boolean
 
     @Insert
     suspend fun insert(note: NoteEntity)

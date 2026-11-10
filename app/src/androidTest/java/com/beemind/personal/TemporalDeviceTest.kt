@@ -38,7 +38,7 @@ class TemporalDeviceTest {
             sqlite.execSQL("INSERT INTO reminders VALUES ('old', 1800000000050, 'SNOOZED', 'stable', 'PENDING', NULL, 'EXACT')")
             sqlite.version = 4
         } finally { sqlite.close() }
-        var db = Room.databaseBuilder(context, BeeMindDatabase::class.java, name).addMigrations(BeeMindDatabase.MIGRATION_4_5).build()
+        var db = Room.databaseBuilder(context, BeeMindDatabase::class.java, name).addMigrations(BeeMindDatabase.MIGRATION_4_5, BeeMindDatabase.MIGRATION_5_6).build()
         val clock = DeviceClock()
         try {
             var repo = RoomNotesRepository(db, clock)
