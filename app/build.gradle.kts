@@ -53,6 +53,9 @@ android {
         // Updates are reviewed together against the pinned compatibility matrix.
         // Keep API, privacy, accessibility and all other correctness checks enabled.
         disable += setOf("GradleDependency", "AndroidGradlePluginVersion")
+        // Stage 0 is a sideloaded APK targeting the tested API 35 toolchain.
+        // Keep the newer-platform advisory visible without making SDK drift fail CI.
+        informational += "OldTargetApi"
     }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
