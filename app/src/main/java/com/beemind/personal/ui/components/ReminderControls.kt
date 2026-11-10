@@ -82,7 +82,7 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(temporalLabel ?: "التذكير", style = MaterialTheme.typography.titleLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = ::relative) { Text("+5") }
+                OutlinedButton(onClick = ::relative) { Text("+5", style = MaterialTheme.typography.labelLarge.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr)) }
                 if (minutes > 0) Text("$minutes د", modifier = Modifier.padding(vertical = 12.dp))
                 IconButton(onClick = { dateOpen = true }) {
                     Icon(androidx.compose.material.icons.Icons.Default.DateRange, "اختيار التاريخ")
@@ -119,7 +119,11 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
                 dateOpen = false
             }) { Text("اختيار") }
         }, dismissButton = { TextButton(onClick = { dateOpen = false }) { Text("إلغاء") } }) {
-            DatePicker(state, modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()))
+            DatePicker(state, title = null, headline = {
+                state.selectedDateMillis?.let {
+                    Text(com.beemind.personal.ui.notes.formatNoteDate(it), modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+                }
+            }, modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()))
         }
     }
     if (timeOpen) {

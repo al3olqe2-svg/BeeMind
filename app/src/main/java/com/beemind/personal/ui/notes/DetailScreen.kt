@@ -108,7 +108,7 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
     }
     if (threadsOpen) ModalBottomSheet(onDismissRequest = { threadsOpen = false },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = BeeDesign.surface) {
-        Box(Modifier.padding(20.dp).padding(bottom = 24.dp)) { ThreadsSection(vm, onOpenLinked, !deletion.busy) }
+        Box(Modifier.padding(20.dp).padding(bottom = 24.dp)) { ThreadsSection(vm, { threadsOpen = false; onOpenLinked(it) }, !deletion.busy) }
     }
     if (deletion.confirming) AlertDialog(
         onDismissRequest = { vm.confirmDelete(false) },

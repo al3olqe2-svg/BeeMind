@@ -243,4 +243,80 @@ class NotesExperienceTest {
         compose.onAllNodesWithText("محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
     }
 
+
+    @Test fun actualTypingDebounceCommitsAndManualSaveDoesNotDuplicate() {
+        openNew(); compose.onNodeWithTag("editor_body").performTextInput("حفظ تلقائي أثناء الكتابة")
+        compose.waitUntil(15000) { runBlocking { repository.observeNotes().first().isNotEmpty() } }
+        val id = runBlocking { repository.observeNotes().first().single().id }
+        compose.onNodeWithTag("editor_body").performTextInput(" وآخر حرف")
+        compose.onNodeWithTag("save_note").performClick(); home()
+        assertEquals(1, runBlocking { repository.observeNotes().first().size })
+        assertEquals("حفظ تلقائي أثناء الكتابة وآخر حرف", runBlocking { repository.getNote(id)!!.body })
+    }
+    @Test fun reminderDoneAndSnoozeRemainReachableInEditorWithoutChangingTextOrCreation() {
+        runBlocking { repository.save("reminder", "", "تذكير باقٍ", true, "r", ExpressiveTrait.GLOW,
+            com.beemind.personal.domain.ReminderEdit(true, System.currentTimeMillis() + 3600000)) }
+        val initial = runBlocking { repository.getNote("reminder")!! }
+        openNote("reminder"); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
+        traits(); compose.onNodeWithText("تأجيل 10 دقائق").performScrollTo().performClick()
+        compose.waitUntil(15000) { runBlocking { repository.getNote("reminder")!!.reminder!!.status == "SNOOZED" } }
+        compose.onNodeWithText("إنجاز").performScrollTo().performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("تم إنجازه").fetchSemanticsNodes().isNotEmpty() }
+        closeTraits(); compose.onNodeWithTag("save_note").performClick(); home()
+        val note = runBlocking { repository.getNote("reminder")!! }
+        assertEquals(initial.body, note.body); assertEquals(initial.createdAt, note.createdAt)
+        assertEquals("DONE", note.reminder!!.status); assertEquals(ExpressiveTrait.GLOW, note.expressiveTrait)
+    }
+    @Test fun masonryHeightsAndLegacyTitleStorageRemainIntactWhileTitlesStayHidden() {
+        runBlocking {
+            repository.save("short", "عنوان داخلي", "قهوة وهدوء.", true, "s")
+            repository.save("long", "عنوان آخر", "هناك أيام نمنح فيها أفكارنا الوقت والمساحة. ".repeat(30), true, "l", ExpressiveTrait.GLOW)
+        }
+        waitForTag("note_short"); waitForTag("note_long")
+        val short = compose.onNodeWithTag("note_short").fetchSemanticsNode().boundsInRoot
+        val long = compose.onNodeWithTag("note_long").fetchSemanticsNode().boundsInRoot
+        assertTrue(long.height > short.height); assertTrue(short.left != long.left)
+        compose.onAllNodesWithText("عنوان داخلي").assertCountEquals(0)
+        screenshot("home-masonry")
+        openNote("short"); compose.onAllNodesWithText("عنوان داخلي").assertCountEquals(0)
+        compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
+        compose.onAllNodesWithTag("editor_title").assertCountEquals(0)
+        compose.onNodeWithTag("editor_body").performTextReplacement("تعديل المتن")
+        compose.onNodeWithTag("save_note").performClick(); home()
+        assertEquals("عنوان داخلي", runBlocking { repository.getNote("short")!!.title })
+        assertEquals("تعديل المتن", runBlocking { repository.getNote("short")!!.body })
+    }
+    @Test fun cyclicThreadNavigationAndAndroidBackUseTheCorrectDestination() {
+        runBlocking {
+            for (id in listOf("a", "b", "c")) repository.save(id, "", "محتوى $id", true, id)
+            repository.setLinked("a", "b", true); repository.setLinked("b", "c", true); repository.setLinked("c", "a", true)
+        }
+        openNote("a")
+        repeat(3) {
+            threadPanel(); waitForTag("thread_open_b"); compose.onNodeWithTag("thread_open_b").performClick()
+            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى b").fetchSemanticsNodes().isNotEmpty() }
+            threadPanel(); waitForTag("thread_open_a"); compose.onNodeWithTag("thread_open_a").performClick()
+            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى a").fetchSemanticsNodes().isNotEmpty() }
+            back()
+            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى b").fetchSemanticsNodes().isNotEmpty() }
+            back()
+            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى a").fetchSemanticsNodes().isNotEmpty() }
+        }
+        assertEquals(2, runBlocking { repository.observeThreadNotes("a", true).first().size })
+    }
+    @Test fun reminderIntentFromThreadDetailsUsesTargetViewModelAndPreservesGeneration() {
+        runBlocking {
+            repository.save("a", "", "البداية", true, "a")
+            repository.save("b", "", "هدف الإشعار", true, "b", ExpressiveTrait.GLOW,
+                com.beemind.personal.domain.ReminderEdit(true, System.currentTimeMillis() + 3600000))
+            repository.setLinked("a", "b", true)
+        }
+        openNote("a")
+        val generation = runBlocking { repository.getNote("b")!!.reminder!!.generation }
+        compose.runOnIdle { compose.activity.reminderOpen.value = "b" to generation }
+        compose.waitUntil(15000) { compose.onAllNodesWithText("هدف الإشعار").fetchSemanticsNodes().isNotEmpty() }
+        threadPanel(); waitForTag("thread_open_a")
+        compose.onAllNodesWithTag("thread_open_b").assertCountEquals(0)
+        assertEquals(generation, runBlocking { repository.getNote("b")!!.reminder!!.generation })
+    }
 }
