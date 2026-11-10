@@ -56,9 +56,12 @@ fun BeeMindApp() {
             try {
                 val reminder = (context.applicationContext as BeeMindApplication).database.reminderDao().get(id)
                 if (reminder?.generation == generation) {
-                    val current = nav.currentBackStackEntry
-                    if (current?.destination?.route != "note/{noteId}" || current.arguments?.getString("noteId") != id) {
-                        nav.navigate("note/${android.net.Uri.encode(id)}")
+                    val source = nav.currentBackStackEntry
+                    if (source != null) source.lifecycle.withResumed {
+                        if (nav.currentBackStackEntry === source &&
+                            (source.destination.route != "note/{noteId}" || source.arguments?.getString("noteId") != id)) {
+                            nav.navigate("note/${android.net.Uri.encode(id)}")
+                        }
                     }
                 } else snackbar.showSnackbar("تغيّر التذكير أو حُذفت الملاحظة. افتح الملاحظة من الصفحة الرئيسية.")
             } catch (e: CancellationException) { throw e
