@@ -38,6 +38,13 @@ class RoomNotesRepository(private val database: BeeMindDatabase, private val clo
             }
         }
     }
+    override fun observeThreadNotes(id: String, linkedOnly: Boolean) = times()
+        .flatMapLatest { if (linkedOnly) database.noteLinksDao().observeLinked(id, it) else database.noteLinksDao().observeCandidates(id, it) }.distinctUntilChanged()
+    override suspend fun setLinked(a: String, b: String, linked: Boolean) = database.withTransaction {
+        require(a != b) { "A note cannot link to itself" }
+        if (!dao.exists(a) || !dao.exists(b)) throw NoteMissingException()
+        if (linked) database.noteLinksDao().connect(a, b) else database.noteLinksDao().disconnect(a, b)
+    }
     override fun observeNotes() = times().flatMapLatest { dao.observeNotes(it) }.distinctUntilChanged()
     override suspend fun scheduleResurface(id: String, dueAt: Long?) = database.withTransaction {
         if (dao.getHeader(id) == null) throw NoteMissingException()

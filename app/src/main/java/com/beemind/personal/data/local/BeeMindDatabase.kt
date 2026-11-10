@@ -8,14 +8,30 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [FoundationEntity::class, NoteEntity::class, EditorDraftEntity::class, ReminderEntity::class], version = 5, exportSchema = true)
+@Database(entities = [FoundationEntity::class, NoteEntity::class, EditorDraftEntity::class, ReminderEntity::class, NoteLink::class], version = 6, exportSchema = true)
 @TypeConverters(TraitConverters::class)
 abstract class BeeMindDatabase : RoomDatabase() {
     abstract fun foundationDao(): FoundationDao
     abstract fun notesDao(): NotesDao
     abstract fun reminderDao(): ReminderDao
 
+    abstract fun noteLinksDao(): NoteLinksDao
+
     companion object {
+        private fun enforceLinkOrder(db: SupportSQLiteDatabase) {
+            for (operation in listOf("INSERT", "UPDATE")) db.execSQL("CREATE TRIGGER IF NOT EXISTS note_links_order_${operation.lowercase()} BEFORE $operation ON note_links WHEN NEW.lowId >= NEW.highId BEGIN SELECT RAISE(ABORT, 'Note links require ordered distinct endpoints'); END")
+        }
+        val LINK_CONSTRAINTS = object : Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) { enforceLinkOrder(db) }
+        }
+        val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS note_links (lowId TEXT NOT NULL, highId TEXT NOT NULL, PRIMARY KEY(lowId, highId), FOREIGN KEY(lowId) REFERENCES notes(id) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(highId) REFERENCES notes(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_note_links_highId ON note_links (highId)")
+                enforceLinkOrder(db)
+            }
+        }
+
         val MIGRATION_1_2: Migration = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS notes (id TEXT NOT NULL PRIMARY KEY, title TEXT, body TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL)")
@@ -52,6 +68,6 @@ abstract class BeeMindDatabase : RoomDatabase() {
 
         fun create(context: Context): BeeMindDatabase = Room.databaseBuilder(
             context.applicationContext, BeeMindDatabase::class.java, "beemind.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).addCallback(LINK_CONSTRAINTS).build()
     }
 }

@@ -33,7 +33,8 @@ class NotesExperienceTest {
         get() = ApplicationProvider.getApplicationContext<BeeMindApplication>().notesRepository
 
     private fun waitForTag(tag: String) {
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        try { compose.waitUntil(15_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() } }
+        catch (e: androidx.compose.ui.test.ComposeTimeoutException) { screenshot("failure-$tag"); throw e }
     }
     private fun openNew() {
         compose.waitUntil(15_000) { compose.onAllNodesWithText("اكتب أول ملاحظة").fetchSemanticsNodes().isNotEmpty() }
@@ -336,6 +337,124 @@ class NotesExperienceTest {
         compose.onAllNodesWithText("↗ عادت للواجهة").assertCountEquals(0)
         assertEquals("newer", runBlocking { repository.observeNotes().first().first().id })
         assertEquals(ExpressiveTrait.ANGER, runBlocking { repository.getNote("older")!!.expressiveTrait })
+    }
+
+    @Test fun threadsPickerMutualNavigationCyclesAndUnlinkUseRealRoomAndBackStack() {
+        runBlocking {
+            repository.save("a", "الفكرة الأولى", "نص الأولى", true, "a", ExpressiveTrait.GLOW)
+            repository.save("b", "الفكرة الثانية", "نص الثانية", true, "b", ExpressiveTrait.ANGER)
+            repository.save("c", "الفكرة الثالثة", "نص الثالثة", true, "c")
+            repository.setLinked("b", "c", true)
+            ApplicationProvider.getApplicationContext<BeeMindApplication>().database.notesDao().reschedule("b", System.currentTimeMillis() - 1)
+            repository.refreshTime()
+        }
+        waitForTag("note_a"); compose.onNodeWithTag("note_a").performClick()
+        waitForTag("manage_threads"); compose.onNodeWithTag("manage_threads").performClick()
+        waitForTag("thread_candidate_b")
+        compose.onAllNodesWithTag("thread_candidate_a").assertCountEquals(0)
+        compose.onNodeWithTag("thread_candidate_b").performClick()
+        compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("a", true).first().size == 1 } }
+        compose.onNodeWithTag("thread_candidate_b").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "مرتبطة بالفعل؛ اضغط لإزالة الرابط"))
+        compose.onNodeWithTag("thread_candidate_c").performClick()
+        compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("a", true).first().size == 2 } }
+        assertNull(runBlocking { repository.getNote("b")!!.resurfaceSeenAt })
+        screenshot("stage5-thread-picker")
+        compose.onNodeWithContentDescription("إغلاق اختيار الخيوط").performClick()
+        waitForTag("thread_open_b")
+        screenshot("stage5-linked-details")
+        compose.onNodeWithTag("thread_open_b").performScrollTo().performClick()
+        waitForTag("thread_open_a")
+        compose.waitUntil(15000) { runBlocking { repository.getNote("b")!!.resurfaceSeenAt != null } }
+        assertEquals(setOf("a", "c"), runBlocking { repository.observeThreadNotes("b", true).first().map { it.note.id }.toSet() })
+        compose.onNodeWithContentDescription("رجوع").performClick()
+        waitForTag("thread_open_b")
+        compose.onNodeWithTag("thread_open_b").performScrollTo().performClick()
+        waitForTag("thread_open_a")
+        compose.onNodeWithTag("thread_open_a").performScrollTo().performClick()
+        waitForTag("thread_open_b")
+        // A -> B -> A returns to B with Android Navigation; there is no recursive rendering.
+        compose.onNodeWithContentDescription("رجوع").performClick()
+        waitForTag("thread_open_a")
+        repeat(4) {
+            compose.onNodeWithTag("thread_open_a").performScrollTo().performClick()
+            waitForTag("thread_open_b")
+            compose.onNodeWithTag("thread_open_b").performScrollTo().performClick()
+            waitForTag("thread_open_a")
+        }
+        assertEquals(2, runBlocking { repository.observeThreadNotes("b", true).first().size })
+        compose.activityRule.scenario.recreate(); waitForTag("thread_open_a")
+        compose.onNodeWithTag("thread_remove_a").performScrollTo().performClick()
+        compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("b", true).first().none { it.note.id == "a" } } }
+        assertEquals("نص الأولى", runBlocking { repository.getNote("a")!!.body })
+        assertEquals("نص الثانية", runBlocking { repository.getNote("b")!!.body })
+    }
+
+    @Test fun threadsNeverExposeCapsuleTextThroughPickerSearchSemanticsOrNavigation() {
+        runBlocking {
+            repository.save("plain", "فكرة متاحة", "نص متاح", true, "p")
+            repository.save("capsule", "عنوان محجوب", "نص محجوب", true, "c", ExpressiveTrait.ANGER,
+                temporalEdit = com.beemind.personal.domain.TemporalEdit(sealUntil = System.currentTimeMillis() + 120000))
+        }
+        waitForTag("note_plain"); compose.onNodeWithTag("note_plain").performClick()
+        waitForTag("manage_threads"); compose.onNodeWithTag("manage_threads").performClick()
+        waitForTag("thread_candidate_capsule")
+        compose.onAllNodesWithText("محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithTag("thread_search").performTextInput("محجوب")
+        compose.onAllNodesWithTag("thread_candidate_capsule").assertCountEquals(0)
+        compose.onNodeWithTag("thread_search").performTextClearance()
+        waitForTag("thread_candidate_capsule")
+        compose.onNodeWithTag("thread_candidate_capsule").performClick()
+        compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("plain", true).first().isNotEmpty() } }
+        screenshot("stage5-capsule-picker")
+        compose.onNodeWithContentDescription("إغلاق اختيار الخيوط").performClick()
+        waitForTag("thread_open_capsule")
+        compose.onAllNodesWithText("محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithTag("thread_open_capsule").performScrollTo().performClick()
+        waitForTag("thread_open_plain")
+        compose.onNodeWithContentDescription("تعديل الملاحظة").assertIsNotEnabled()
+        compose.onAllNodesWithText("محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        screenshot("stage5-capsule-via-thread")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h640dp")
+    fun threadsSmallPhoneLargeFontPickerRemainsScrollableAndAccessible() {
+        org.robolectric.RuntimeEnvironment.setFontScale(1.5f)
+        compose.activityRule.scenario.recreate()
+        runBlocking {
+            for (i in 0 until 25) repository.save("b$i", "فكرة عربية طويلة $i", "معاينة لفكرة مستقلة", true, "b$i")
+            repository.save("a", "فكرة", "نص", true, "a")
+        }
+        waitForTag("note_a")
+        compose.onNodeWithTag("note_a").performClick()
+        waitForTag("manage_threads"); compose.onNodeWithTag("manage_threads").performScrollTo().performClick()
+        waitForTag("thread_search")
+        compose.onNodeWithTag("thread_search").performTextInput("فكرة عربية طويلة 24")
+        waitForTag("thread_candidate_b24")
+        compose.onNodeWithTag("thread_candidate_b24").assertIsDisplayed()
+        val bounds = compose.onNodeWithTag("thread_candidate_b24").fetchSemanticsNode().boundsInRoot
+        assertTrue(bounds.height >= 48 * compose.activity.resources.displayMetrics.density)
+        screenshot("stage5-picker-small-large-font")
+        compose.onNodeWithTag("thread_candidate_b24").performClick()
+        compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("a", true).first().size == 1 } }
+        compose.onNodeWithContentDescription("إغلاق اختيار الخيوط").assertIsDisplayed().performClick()
+    }
+
+    @Test fun reminderOpeningAnotherNoteFromThreadDetailsUsesTheTargetViewModel() {
+        runBlocking {
+            repository.save("a", "ملاحظة البداية", "محتوى البداية", true, "a")
+            repository.save("b", "هدف الإشعار", "محتوى هدف الإشعار", true, "b", ExpressiveTrait.GLOW,
+                com.beemind.personal.domain.ReminderEdit(true, System.currentTimeMillis() + 3600000))
+            repository.setLinked("a", "b", true)
+        }
+        waitForTag("note_a"); compose.onNodeWithTag("note_a").performClick()
+        waitForTag("thread_open_b")
+        val generation = runBlocking { repository.getNote("b")!!.reminder!!.generation }
+        compose.runOnIdle { compose.activity.reminderOpen.value = "b" to generation }
+        waitForTag("thread_open_a")
+        compose.onNodeWithText("هدف الإشعار").performScrollTo().assertIsDisplayed()
+        assertEquals(generation, runBlocking { repository.getNote("b")!!.reminder!!.generation })
+        compose.onAllNodesWithTag("thread_open_b").assertCountEquals(0)
     }
 
 }

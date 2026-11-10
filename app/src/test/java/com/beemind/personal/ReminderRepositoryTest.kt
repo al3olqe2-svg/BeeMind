@@ -189,6 +189,32 @@ class ReminderRepositoryTest {
         assertNull(db.foundationDao().observeValue(key).first())
     }
 
+    @Test fun threadsNeverScheduleExtraAlarmsAndDoneSnoozeAndCascadeRemainIndependent() = runBlocking {
+        val a = create()
+        repository.save("b", "ملاحظة ثانية", "تبقى مستقلة", true, "b", ExpressiveTrait.ANGER)
+        val original = row()
+        repository.setLinked("a", "b", true)
+        repository.setLinked("b", "a", true)
+        assertEquals(original, row()); assertEquals(1, scheduler.alarms.size)
+        var delivered = due()
+        assertTrue(coordinator.action("a", delivered.generation, "SNOOZE", true))
+        val snoozed = row()
+        repository.setLinked("b", "a", false)
+        assertEquals(snoozed, row()); assertEquals(1, scheduler.alarms.size)
+        repository.setLinked("a", "b", true)
+        delivered = due()
+        assertTrue(coordinator.action("a", delivered.generation, "DONE", true))
+        assertEquals(1, repository.observeThreadNotes("a", true).first().size)
+        assertTrue(scheduler.alarms.isEmpty()); assertEquals(2, notifier.shown.size)
+        assertEquals(a.body, repository.getNote("a")!!.body)
+        create() // A new real reminder is cancelled when its note is deleted.
+        repository.delete("a")
+        assertTrue(scheduler.alarms.isEmpty())
+        assertTrue(repository.observeThreadNotes("b", true).first().isEmpty())
+        assertEquals("تبقى مستقلة", repository.getNote("b")!!.body)
+        assertEquals(ExpressiveTrait.ANGER, repository.getNote("b")!!.expressiveTrait)
+    }
+
     private class MutableClock(var now: Long = 1_800_000_000_000) : Clock() {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId): Clock = this

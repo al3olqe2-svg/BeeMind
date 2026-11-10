@@ -19,6 +19,31 @@ data class DeleteState(val confirming: Boolean = false, val busy: Boolean = fals
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DetailViewModel(private val repository: NotesRepository, private val id: String) : ViewModel() {
+    private val threadReload = MutableStateFlow(0)
+    fun retryThreads() { threadReload.value += 1 }
+    private val pickerOpen = MutableStateFlow(false)
+    private fun threadFlow(linkedOnly: Boolean): Flow<ThreadContent> = threadReload.flatMapLatest {
+        repository.observeThreadNotes(id, linkedOnly).map { ThreadContent.Ready(it) as ThreadContent }
+            .onStart { emit(ThreadContent.Loading) }.catch { emit(ThreadContent.Error) }
+    }
+    val linkedNotes = threadFlow(true).stateIn(viewModelScope, SharingStarted.WhileSubscribed(0, 0), ThreadContent.Loading)
+    val candidates = pickerOpen.flatMapLatest { if (it) threadFlow(false) else flowOf(ThreadContent.Loading) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0, 0), ThreadContent.Loading)
+    fun showThreadPicker(open: Boolean) { pickerOpen.value = open }
+    private val mutableLinkBusy = MutableStateFlow<Set<String>>(emptySet())
+    val linkBusy = mutableLinkBusy.asStateFlow()
+    private val mutableLinkError = MutableStateFlow(false)
+    val linkError = mutableLinkError.asStateFlow()
+    fun setLinked(other: String, linked: Boolean) {
+        if (other in mutableLinkBusy.value) return
+        mutableLinkBusy.update { it + other }
+        viewModelScope.launch {
+            try { repository.setLinked(id, other, linked); mutableLinkError.value = false }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { mutableLinkError.value = true }
+            finally { mutableLinkBusy.update { it - other } }
+        }
+    }
     private val reload = MutableStateFlow(0)
     val content = reload.flatMapLatest {
         repository.observeNote(id).map { DetailContent.Ready(it) as DetailContent }
@@ -55,4 +80,10 @@ class DetailViewModel(private val repository: NotesRepository, private val id: S
             }
         }
     }
+}
+
+sealed interface ThreadContent {
+    data object Loading : ThreadContent
+    data object Error : ThreadContent
+    data class Ready(val notes: List<com.beemind.personal.domain.ThreadNote>) : ThreadContent
 }

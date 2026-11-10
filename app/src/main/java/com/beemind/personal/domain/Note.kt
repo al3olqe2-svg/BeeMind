@@ -20,3 +20,6 @@ data class DraftSummary(val sessionId: String, val noteId: String?)
 
 class EmptyNoteException : IllegalArgumentException()
 class NoteMissingException : IllegalStateException()
+
+/** Redacted, bounded projection; never full diary text. */
+data class ThreadNote(@androidx.room.Embedded val note: NoteSummary, val linked: Boolean)
