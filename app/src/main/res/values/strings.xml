@@ -43,4 +43,13 @@
     <string name="loading_notes">جارٍ تحميل الملاحظات</string>
     <string name="editor_open_error">تعذّر فتح المحرر. حاول مرة أخرى.</string>
     <string name="note_saved">حُفظت الملاحظة على جهازك</string>
+    <string name="trait_title">شخصية الملاحظة</string>
+    <string name="trait_current">السمة: %1$s</string>
+    <string name="trait_none">بدون سمة</string>
+    <string name="trait_glow">Glow — الوهج</string>
+    <string name="trait_anger">Anger — الغضب</string>
+    <string name="trait_save_hint">اختر سمة واحدة. تُحفظ مع الملاحظة عند الضغط على حفظ.</string>
+    <string name="trait_none_description">العودة إلى المظهر الأصلي الهادئ</string>
+    <string name="trait_glow_description">إطار قزحي متصل وهالة مضيئة</string>
+    <string name="trait_anger_description">إطار قرمزي حاد وهالة حمراء</string>
 </resources>

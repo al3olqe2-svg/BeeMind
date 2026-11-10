@@ -87,6 +87,28 @@ class EditorViewModelTest {
         assertTrue(repo.notes.isEmpty())
     }
 
+    @Test fun traitOnlyEditIsProtectedRecoveredAndSavedWithText() = runTest {
+        val repo = FakeRepository().apply {
+            notes["existing"] = Note("existing", "عنوان", "النص الأصلي", 1, 1, ExpressiveTrait.GLOW)
+        }
+        val vm = EditorViewModel(repo, "session", "existing").also { store.put("first", it) }
+        assertEquals(ExpressiveTrait.GLOW, vm.state.value.expressiveTrait)
+        vm.selectTrait(ExpressiveTrait.ANGER)
+        vm.requestExit()
+        assertTrue(vm.state.value.confirmExit)
+        vm.stay()
+        vm.persistOnBackground()
+        advanceUntilIdle()
+        assertEquals(ExpressiveTrait.ANGER, repo.draft!!.expressiveTrait)
+        assertEquals(ExpressiveTrait.GLOW, repo.notes["existing"]!!.expressiveTrait)
+        val restored = EditorViewModel(repo, "session", "existing").also { store.put("restored", it) }
+        assertEquals(ExpressiveTrait.ANGER, restored.state.value.expressiveTrait)
+        assertEquals("النص الأصلي", restored.body.text.toString())
+        restored.selectTrait(ExpressiveTrait.NONE)
+        restored.save()
+        assertEquals(ExpressiveTrait.NONE, repo.notes["existing"]!!.expressiveTrait)
+    }
+
     /** Fault injection only; the shipped application always uses RoomNotesRepository. */
     private class FakeRepository : NotesRepository {
         val notes = linkedMapOf<String, Note>()
@@ -107,11 +129,11 @@ class EditorViewModelTest {
         override suspend fun latestDraftForNote(noteId: String): DraftSummary? = null
         override suspend fun putDraft(draft: EditorDraft) { this.draft = draft }
         override suspend fun discardDraft(sessionId: String) { discardCalls++; draft = null }
-        override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String): Note {
+        override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String, expressiveTrait: ExpressiveTrait): Note {
             saveCalls++
             saveGate?.await()
             if (failSave) throw IllegalStateException("Injected write failure")
-            return Note(id, title, body, 1, 1).also { notes[id] = it }
+            return Note(id, title, body, 1, 1, expressiveTrait).also { notes[id] = it }
         }
         override suspend fun delete(id: String) { notes.remove(id) }
     }

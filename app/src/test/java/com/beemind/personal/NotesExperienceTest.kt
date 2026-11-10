@@ -6,8 +6,10 @@ import android.os.Bundle
 import android.os.Parcel
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
+import com.beemind.personal.domain.ExpressiveTrait
 import com.beemind.personal.domain.NotesRepository
 import java.io.File
 import kotlinx.coroutines.flow.first
@@ -113,6 +115,67 @@ class NotesExperienceTest {
         compose.onNodeWithTag("editor_body").performTextInput("نص عربي طويل، مع English 123. ".repeat(50))
         compose.onNodeWithTag("save_note").assertIsDisplayed().assertIsEnabled()
         screenshot("editor-small-large-font")
+        chooseTrait("Glow — الوهج")
+        compose.onNodeWithTag("save_note").assertIsDisplayed().assertIsEnabled()
+    }
+
+    private fun chooseTrait(label: String) {
+        compose.onNodeWithText("السمة:", substring = true).performClick()
+        compose.onNodeWithText("شخصية الملاحظة").assertIsDisplayed()
+        screenshot("trait-picker")
+        compose.onNodeWithText(label, useUnmergedTree = true).performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("شخصية الملاحظة").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test fun expressiveChoiceSurvivesRecreationAndDiscardDoesNotChangeSavedTrait() {
+        openNew()
+        compose.onNodeWithTag("editor_body").performTextInput("ملاحظة ذات شخصية 🌈")
+        chooseTrait("Glow — الوهج")
+        compose.activityRule.scenario.recreate()
+        waitForTag("editor_body")
+        compose.onNodeWithText("السمة: Glow — الوهج").assertIsDisplayed()
+        compose.onNodeWithTag("save_note").performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("السمة: Glow — الوهج").assertIsDisplayed()
+        compose.onNodeWithContentDescription("تعديل الملاحظة").performClick()
+        waitForTag("editor_body")
+        chooseTrait("Anger — الغضب")
+        compose.onNodeWithContentDescription("رجوع").performClick()
+        compose.onNodeWithText("قبل أن تغادر…").assertIsDisplayed()
+        compose.onNodeWithText("تجاهل التعديلات").performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(ExpressiveTrait.GLOW, runBlocking { repository.getNote(repository.observeNotes().first().single().id)!!.expressiveTrait })
+        compose.onNodeWithContentDescription("تعديل الملاحظة").performClick()
+        waitForTag("editor_body")
+        chooseTrait("Anger — الغضب")
+        compose.onNodeWithTag("save_note").performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("السمة: Anger — الغضب").assertIsDisplayed()
+        compose.onNodeWithContentDescription("تعديل الملاحظة").performClick()
+        waitForTag("editor_body")
+        chooseTrait("بدون سمة")
+        compose.onNodeWithTag("save_note").performClick()
+        compose.waitUntil(15_000) { runBlocking { repository.observeNotes().first().single().expressiveTrait == ExpressiveTrait.NONE } }
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("رجوع").performClick()
+        val id = runBlocking { repository.observeNotes().first().single().id }
+        waitForTag("note_$id")
+        compose.onNodeWithTag("note_$id").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "بدون سمة"))
+    }
+
+    @Test fun expressiveCardsKeepIdenticalBoundsAndReadableRtlContent() {
+        runBlocking {
+            for (trait in ExpressiveTrait.entries) repository.save(trait.name, "فكرة عربية", "محتوى مقروء", true, trait.name, trait)
+        }
+        waitForTag("note_NONE")
+        val bounds = ExpressiveTrait.entries.map { trait ->
+            compose.onNodeWithTag("note_" + trait.name).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        }
+        assertEquals(bounds[0].height, bounds[1].height)
+        assertEquals(bounds[0].height, bounds[2].height)
+        screenshot("home-expressive-traits")
+        compose.onNodeWithTag("note_GLOW").performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("السمة: Glow — الوهج").fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test fun launcherWingRendersWithAndroidDrawable() {
@@ -134,8 +197,8 @@ class NotesExperienceTest {
     @Test fun masonryUsesDifferentCardHeightsAndCanOpenAnExistingNote() {
         runBlocking {
             repository.save("short", "لحظة صغيرة", "قهوة وهدوء.", true, "s")
-            repository.save("long", "ما تعلّمته اليوم", "هناك أيام نتعلّم فيها أن نبطئ قليلًا، لنمنح أفكارنا الوقت والمساحة. ".repeat(8), true, "l")
-            repository.save("third", "", "فكرة بلا عنوان، لكنها تستحق أن تبقى.", true, "t")
+            repository.save("long", "ما تعلّمته اليوم", "هناك أيام نتعلّم فيها أن نبطئ قليلًا، لنمنح أفكارنا الوقت والمساحة. ".repeat(8), true, "l", ExpressiveTrait.GLOW)
+            repository.save("third", "", "فكرة بلا عنوان، لكنها تستحق أن تبقى.", true, "t", ExpressiveTrait.ANGER)
         }
         waitForTag("note_short")
         waitForTag("note_long")

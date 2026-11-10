@@ -19,7 +19,7 @@ class RoomNotesRepository(private val database: BeeMindDatabase, private val clo
         val header = dao.getHeader(id) ?: return@withTransaction null
         val title = header.titleBytes?.let { readText(it) { offset -> checkNotNull(dao.readTitleChunk(id, offset, TEXT_CHUNK)) } }
         val body = readText(header.bodyBytes) { offset -> checkNotNull(dao.readBodyChunk(id, offset, TEXT_CHUNK)) }
-        Note(header.id, title, body, header.createdAt, header.updatedAt)
+        Note(header.id, title, body, header.createdAt, header.updatedAt, header.expressiveTrait)
     }
 
     private suspend fun readText(byteLength: Int, chunk: suspend (Int) -> ByteArray): String {
@@ -37,15 +37,15 @@ class RoomNotesRepository(private val database: BeeMindDatabase, private val clo
         val header = dao.getDraftHeader(sessionId) ?: return@withTransaction null
         val title = readText(header.titleBytes) { offset -> checkNotNull(dao.readDraftTitleChunk(sessionId, offset, TEXT_CHUNK)) }
         val body = readText(header.bodyBytes) { offset -> checkNotNull(dao.readDraftBodyChunk(sessionId, offset, TEXT_CHUNK)) }
-        EditorDraft(header.sessionId, header.noteId, title, body, header.editedAt)
+        EditorDraft(header.sessionId, header.noteId, title, body, header.editedAt, header.expressiveTrait)
     }
     override suspend fun latestDraftForNote(noteId: String) = dao.latestDraftForNote(noteId)
     override suspend fun putDraft(draft: EditorDraft) {
-        dao.putDraft(EditorDraftEntity(draft.sessionId, draft.noteId, draft.title, draft.body, draft.editedAt))
+        dao.putDraft(EditorDraftEntity(draft.sessionId, draft.noteId, draft.title, draft.body, draft.editedAt, draft.expressiveTrait))
     }
     override suspend fun discardDraft(sessionId: String) = dao.discardDraft(sessionId)
 
-    override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String): Note {
+    override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String, expressiveTrait: ExpressiveTrait): Note {
         if (title.isBlank() && body.isBlank()) throw EmptyNoteException()
         val normalizedTitle = title.trim().ifEmpty { null }
         return database.withTransaction {
@@ -53,13 +53,13 @@ class RoomNotesRepository(private val database: BeeMindDatabase, private val clo
             val saved = if (old == null) {
                 if (!isNew) throw NoteMissingException()
                 val now = clock.millis()
-                NoteEntity(id, normalizedTitle, body, now, now).also { dao.insert(it) }.toNote()
-            } else if (old.title == normalizedTitle && old.body == body) {
+                NoteEntity(id, normalizedTitle, body, now, now, expressiveTrait).also { dao.insert(it) }.toNote()
+            } else if (old.title == normalizedTitle && old.body == body && old.expressiveTrait == expressiveTrait) {
                 old
             } else {
                 val edited = maxOf(clock.millis(), old.updatedAt + 1)
-                dao.updateContent(id, normalizedTitle, body, edited)
-                old.copy(title = normalizedTitle, body = body, updatedAt = edited)
+                dao.updateContent(id, normalizedTitle, body, edited, expressiveTrait)
+                old.copy(title = normalizedTitle, body = body, updatedAt = edited, expressiveTrait = expressiveTrait)
             }
             dao.discardDraft(sessionId)
             saved

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.beemind.personal.R
+import com.beemind.personal.domain.ExpressiveTrait
 import com.beemind.personal.domain.DraftSummary
 import com.beemind.personal.domain.NoteSummary
 import com.beemind.personal.ui.components.*
@@ -108,20 +109,24 @@ private fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
     val edge = if (illumination > 0f) Brush.linearGradient(BeeDesign.spectrum.map {
         androidx.compose.ui.graphics.lerp(BeeDesign.border, it, illumination * 0.75f)
     }) else Brush.linearGradient(listOf(BeeDesign.border, BeeDesign.border))
-    Card(onClick = onClick, interactionSource = interaction, border = BorderStroke(1.dp, edge), shape = BeeDesign.card, colors = CardDefaults.cardColors(containerColor = BeeDesign.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag("note_${note.id}")
-            .semantics { traversalIndex = index.toFloat() + 1 }) {
-        Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (!note.title.isNullOrBlank()) {
-                Text(note.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+    val traitLabel = stringResource(note.expressiveTrait.labelResource())
+    Box(Modifier.fillMaxWidth().expressiveHalo(note.expressiveTrait)) {
+        Card(onClick = onClick, interactionSource = interaction, border = BorderStroke(if (note.expressiveTrait == ExpressiveTrait.NONE) 1.dp else 2.dp,
+            if (note.expressiveTrait == ExpressiveTrait.NONE) edge else note.expressiveTrait.edgeBrush()), shape = BeeDesign.card, colors = CardDefaults.cardColors(containerColor = BeeDesign.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag("note_${note.id}")
+                .semantics { traversalIndex = index.toFloat() + 1; stateDescription = traitLabel }) {
+            Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (!note.title.isNullOrBlank()) {
+                    Text(note.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                if (note.preview.isNotBlank()) {
+                    Text(note.preview, style = MaterialTheme.typography.bodyMedium, maxLines = 8,
+                        overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(formatNoteDate(note.createdAt), style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (note.preview.isNotBlank()) {
-                Text(note.preview, style = MaterialTheme.typography.bodyMedium, maxLines = 8,
-                    overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(formatNoteDate(note.createdAt), style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

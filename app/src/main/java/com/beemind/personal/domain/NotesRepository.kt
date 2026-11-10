@@ -11,6 +11,6 @@ interface NotesRepository {
     suspend fun latestDraftForNote(noteId: String): DraftSummary?
     suspend fun putDraft(draft: EditorDraft)
     suspend fun discardDraft(sessionId: String)
-    suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String): Note
+    suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String, expressiveTrait: ExpressiveTrait = ExpressiveTrait.NONE): Note
     suspend fun delete(id: String)
 }
