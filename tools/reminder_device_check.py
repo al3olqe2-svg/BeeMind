@@ -99,6 +99,8 @@ assert adb('shell', 'getprop', 'ro.kernel.qemu').strip() == '1', 'Emulator requi
 print(adb('root'), flush=True)
 adb('wait-for-device')
 assert adb('shell', 'id', '-u').strip() == '0', 'Rootable Google APIs emulator required'
+live_log = None
+live_log_file = None
 try:
     sdk = int(adb('shell', 'getprop', 'ro.build.version.sdk').strip())
     if sdk >= 33:
@@ -106,6 +108,8 @@ try:
     if sdk >= 31:
         adb('shell', 'appops', 'set', PACKAGE, 'SCHEDULE_EXACT_ALARM', 'allow')
     adb('logcat', '-c')
+    live_log_file = (OUT / 'live-logcat.txt').open('w', encoding='utf-8')
+    live_log = subprocess.Popen(['adb', 'logcat', '-v', 'threadtime'], stdout=live_log_file, stderr=subprocess.STDOUT)
     seed = adb('shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
                PACKAGE + '.ReminderDeviceFixture#seed',
                PACKAGE + '.test/androidx.test.runner.AndroidJUnitRunner')
@@ -158,3 +162,12 @@ finally:
     evidence('activities.txt', 'shell', 'dumpsys', 'activity', 'activities')
     evidence('idle-cleanup.txt', 'shell', 'dumpsys', 'deviceidle', 'unforce')
     evidence('battery-cleanup.txt', 'shell', 'dumpsys', 'battery', 'reset')
+    if live_log is not None:
+        live_log.terminate()
+        try:
+            live_log.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            live_log.kill()
+            live_log.wait(timeout=5)
+    if live_log_file is not None:
+        live_log_file.close()
