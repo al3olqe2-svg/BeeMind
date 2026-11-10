@@ -7,6 +7,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -37,11 +39,18 @@ class NativeVisualProbeTest {
                         "empty" -> Unit
                         "rainbow" -> RainbowLine()
                         "fab" -> NeonAdd { }
-                        "home" -> {
+                        "text" -> Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium)
+                        "home-empty", "home-plain", "home-glow", "home" -> {
                             val now = System.currentTimeMillis()
-                            val notes = listOf(
-                                NoteSummary("visual-a", null, "ملاحظة تجريبية", now, now, ExpressiveTrait.GLOW, now + 3600000),
-                                NoteSummary("visual-b", null, "Synthetic note", now, now, ExpressiveTrait.ANGER))
+                            val notes = when (component) {
+                                "home-empty" -> emptyList()
+                                "home-plain" -> listOf(NoteSummary("visual-a", null, "ملاحظة تجريبية Synthetic note", now, now))
+                                "home-glow" -> listOf(NoteSummary("visual-a", null, "ملاحظة تجريبية Synthetic note", now, now, ExpressiveTrait.GLOW))
+                                else -> listOf(
+                                    NoteSummary("visual-a", null, "ملاحظة تجريبية", now, now, ExpressiveTrait.GLOW, now + 3600000),
+                                    NoteSummary("visual-b", null, "Synthetic note", now, now, ExpressiveTrait.GLOW),
+                                    NoteSummary("visual-c", null, "ملاحظة أخرى", now, now, ExpressiveTrait.ANGER))
+                            }
                             HomeScreen(HomeState.Ready(notes, null), {}, {}, {}, {})
                         }
                         else -> error("Unknown probe component")
@@ -52,9 +61,11 @@ class NativeVisualProbeTest {
             Thread.sleep(1200)
             instrument.waitForIdleSync()
             scenario.onActivity { current -> assertTrue(current.window.decorView.width > 0) }
+            println("RENDER_READY: $component")
             val bitmap = checkNotNull(instrument.uiAutomation.takeScreenshot())
             File(context.filesDir, "native-ui-$component.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()
+            println("SCREENSHOT_WRITTEN: $component")
         }
     }
 }

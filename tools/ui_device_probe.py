@@ -16,7 +16,7 @@ adb('logcat', '-c')
 with (OUT / 'live-logcat.txt').open('w', encoding='utf-8') as log:
     logger = subprocess.Popen(['adb', 'logcat', '-v', 'threadtime'], stdout=log, stderr=subprocess.STDOUT)
     try:
-        for component in ['empty', 'rainbow', 'fab', 'home', 'main']:
+        for component in ['empty', 'rainbow', 'fab', 'text', 'home-empty', 'home-plain', 'home-glow', 'home', 'main']:
             print('NATIVE VISUAL PROBE:', component, flush=True)
             result = adb('shell', 'am', 'instrument', '-w', '-r', '-e', 'component', component,
                          '-e', 'class', PACKAGE + '.NativeVisualProbeTest',
