@@ -1,6 +1,7 @@
 """Destructive synthetic fixtures on DISPOSABLE EMULATORS ONLY, never owner devices.
 After seed/initial scheduling: no Activity, no instrumentation process, real alarms.
 """
+from contextlib import closing
 import pathlib
 import re
 import sqlite3
@@ -16,6 +17,11 @@ def adb(*args):
 
 def snapshot():
     # Read private synthetic Room/WAL after each short phase without opening BeeMind.
+    # Never retain a host SQLite connection/SHM mapping while replacing copied WAL files.
+    for suffix in ['-shm', '-wal']:
+        path = OUT / ('beemind.db' + suffix)
+        if path.exists():
+            path.unlink()
     for name in ['beemind.db', 'beemind.db-wal']:
         result = subprocess.run(['adb', 'exec-out', 'run-as', PACKAGE, 'cat', 'databases/' + name], capture_output=True)
         path = OUT / name
@@ -23,7 +29,7 @@ def snapshot():
             path.write_bytes(result.stdout)
         elif path.exists():
             path.unlink()
-    with sqlite3.connect(OUT / 'beemind.db') as db:
+    with closing(sqlite3.connect('file:' + str(OUT / 'beemind.db') + '?mode=ro', uri=True)) as db:
         db.row_factory = sqlite3.Row
         return {r['noteId']: dict(r) for r in db.execute('SELECT * FROM reminders')}
 
@@ -125,7 +131,7 @@ try:
     adb('shell', 'dumpsys', 'deviceidle', 'unforce')
     tap_notification_action('إنجاز')
     wait_for(lambda: all(r['status'] == 'DONE' for r in snapshot().values()), 15, 'both reminders done')
-    with sqlite3.connect(OUT / 'beemind.db') as db:
+    with closing(sqlite3.connect('file:' + str(OUT / 'beemind.db') + '?mode=ro', uri=True)) as db:
         assert db.execute('SELECT count(*) FROM notes').fetchone()[0] == 2
         assert db.execute("SELECT count(*) FROM notes WHERE expressiveTrait = 'GLOW'").fetchone()[0] == 2
     print('PASS: native cold delivery, actual ten-minute snooze in Doze, notes retained', flush=True)
