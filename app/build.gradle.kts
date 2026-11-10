@@ -23,7 +23,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.1.0"
+        versionName = "0.2.0"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {
@@ -47,13 +47,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    testOptions { unitTests.isIncludeAndroidResources = true }
     lint {
         abortOnError = true
         warningsAsErrors = true
         // Updates are reviewed together against the pinned compatibility matrix.
         // Keep API, privacy, accessibility and all other correctness checks enabled.
         disable += setOf("GradleDependency", "AndroidGradlePluginVersion")
-        // Stage 0 is a sideloaded APK targeting the tested API 35 toolchain.
+        // BeeMind is a sideloaded APK targeting the tested API 35 toolchain.
         // Keep the newer-platform advisory visible without making SDK drift fail CI.
         informational += "OldTargetApi"
     }
@@ -65,6 +66,8 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.lifecycle)
+    implementation(libs.androidx.lifecycle.runtime)
+    implementation(libs.compose.icons)
     implementation(libs.androidx.navigation)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -75,4 +78,19 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.junit)
+    testImplementation(libs.coroutines.test)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test)
+    debugImplementation(libs.compose.test.manifest)
+}
+
+ tasks.withType<Test>().configureEach {
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    listOf("http.proxyHost", "http.proxyPort", "https.proxyHost", "https.proxyPort").forEach { key ->
+        System.getProperty(key)?.let { systemProperty(key, it) }
+    }
+    maxHeapSize = "2g"
 }

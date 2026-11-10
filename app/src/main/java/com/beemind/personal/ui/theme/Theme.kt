@@ -19,6 +19,6 @@ private val Colors = lightColorScheme(
 @Composable
 fun BeeMindTheme(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = Colors, content = content)
+        MaterialTheme(colorScheme = Colors, typography = BeeDesign.typography, content = content)
     }
 }
