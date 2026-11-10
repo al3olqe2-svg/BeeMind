@@ -56,7 +56,7 @@ class EditorViewModel(
 
     init {
         load()
-        noteId?.let { id -> viewModelScope.launch {
+        (noteId ?: sessionId).let { id -> viewModelScope.launch {
             repository.observeNote(id).collect { note ->
                 if (note?.locked == true && !closed) {
                     draftJob?.cancelAndJoin(); inputJob?.cancelAndJoin()
@@ -79,7 +79,10 @@ class EditorViewModel(
         mutableState.value = EditorState()
         viewModelScope.launch {
             try {
-                val note = noteId?.let { repository.getNote(it) ?: throw NoteMissingException() }
+                // A process can die after the atomic save but before navigation. A new
+                // editor's session UUID is also its committed note ID; recheck that ID.
+                val note = repository.getNote(noteId ?: sessionId)
+                if (noteId != null && note == null) throw NoteMissingException()
                 if (note?.locked == true) {
                     mutableState.value = EditorState(loading = false, lockedUntil = note.unlockAt)
                     return@launch

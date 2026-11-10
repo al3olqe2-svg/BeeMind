@@ -141,6 +141,16 @@ class EditorViewModelTest {
         vm.save(); vm.persistOnBackground()
         assertEquals(0, repo.saveCalls); assertEquals("لا تعرضه", repo.draft!!.body)
     }
+    @Test fun newEditorRestoredAfterCommittedSealChecksItsSessionNoteId() = runTest {
+        val repo = FakeRepository().apply {
+            notes["session"] = Note("session", null, "", 1, 1, unlockAt = 10000, locked = true)
+        }
+        val restored = editor(repo)
+        assertEquals(10000L, restored.state.value.lockedUntil)
+        assertEquals("", restored.body.text.toString())
+        restored.save(); assertEquals(0, repo.saveCalls)
+    }
+
     @Test fun successfulSealClearsLiveTextOnlyAfterCommitAndFailurePreservesDraft() = runTest {
         val gate = CompletableDeferred<Unit>()
         val repo = FakeRepository().apply { saveGate = gate }
