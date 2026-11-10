@@ -20,10 +20,11 @@ android {
     buildToolsVersion = "35.0.0"
     defaultConfig {
         applicationId = "com.beemind.personal"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.3.0"
+        versionName = "0.4.0"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {
@@ -77,6 +78,8 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

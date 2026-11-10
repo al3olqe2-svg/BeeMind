@@ -109,6 +109,26 @@ class EditorViewModelTest {
         assertEquals(ExpressiveTrait.NONE, repo.notes["existing"]!!.expressiveTrait)
     }
 
+    @Test fun reminderDraftRecoversAndDiscardNeverCallsSave() = runTest {
+        val repo = FakeRepository()
+        val vm = EditorViewModel(repo, "reminder-session", null).also { store.put("reminder", it) }
+        vm.body.edit { append("مسودة تذكير") }
+        vm.selectTrait(ExpressiveTrait.GLOW)
+        val due = System.currentTimeMillis() + 300_000
+        vm.selectReminder(due)
+        vm.persistOnBackground()
+        advanceUntilIdle()
+        assertEquals(ReminderEdit(true, due), repo.draft!!.reminderEdit)
+        assertEquals(0, repo.saveCalls)
+        val restored = EditorViewModel(repo, "reminder-session", null).also { store.put("restored-reminder", it) }
+        assertEquals(ReminderEdit(true, due), restored.state.value.reminderEdit)
+        restored.requestExit()
+        assertTrue(restored.state.value.confirmExit)
+        restored.discardAndExit()
+        assertEquals(0, repo.saveCalls)
+        assertNull(repo.draft)
+    }
+
     /** Fault injection only; the shipped application always uses RoomNotesRepository. */
     private class FakeRepository : NotesRepository {
         val notes = linkedMapOf<String, Note>()
@@ -129,11 +149,12 @@ class EditorViewModelTest {
         override suspend fun latestDraftForNote(noteId: String): DraftSummary? = null
         override suspend fun putDraft(draft: EditorDraft) { this.draft = draft }
         override suspend fun discardDraft(sessionId: String) { discardCalls++; draft = null }
-        override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String, expressiveTrait: ExpressiveTrait): Note {
+        override suspend fun save(id: String, title: String, body: String, isNew: Boolean, sessionId: String, expressiveTrait: ExpressiveTrait, reminderEdit: ReminderEdit): Note {
             saveCalls++
             saveGate?.await()
             if (failSave) throw IllegalStateException("Injected write failure")
-            return Note(id, title, body, 1, 1, expressiveTrait).also { notes[id] = it }
+            return Note(id, title, body, 1, 1, expressiveTrait, if (reminderEdit.edited && reminderEdit.dueAt != null)
+                Reminder(id, reminderEdit.dueAt, "SCHEDULED", "test") else null).also { notes[id] = it }
         }
         override suspend fun delete(id: String) { notes.remove(id) }
     }

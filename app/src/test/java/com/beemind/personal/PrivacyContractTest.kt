@@ -13,9 +13,11 @@ class PrivacyContractTest {
         isNamespaceAware = true
     }.newDocumentBuilder().parse(File("src/main/$path"))
 
-    @Test fun manifestDoesNotRequestAnyPermissionsOrBackup() {
+    @Test fun manifestOnlyRequestsReminderPermissionsAndNoBackup() {
         val manifest = xml("AndroidManifest.xml")
-        assertEquals(0, manifest.getElementsByTagName("uses-permission").length)
+        val permissions = manifest.getElementsByTagName("uses-permission")
+        assertEquals(setOf("android.permission.WAKE_LOCK", "android.permission.POST_NOTIFICATIONS", "android.permission.SCHEDULE_EXACT_ALARM", "android.permission.RECEIVE_BOOT_COMPLETED"),
+            (0 until permissions.length).map { (permissions.item(it) as Element).getAttributeNS(androidNamespace, "name") }.toSet())
         val app = manifest.getElementsByTagName("application").item(0) as Element
         assertEquals("false", app.getAttributeNS(androidNamespace, "allowBackup"))
         assertEquals("true", app.getAttributeNS(androidNamespace, "supportsRtl"))

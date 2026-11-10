@@ -10,8 +10,12 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+private data class EditorInput(val title: String, val body: String, val trait: ExpressiveTrait, val reminder: ReminderEdit)
+
 /** TextFieldState is retained by this ViewModel, never by rememberSaveable/Bundle. */
 data class EditorState(
+    val reminderEdit: ReminderEdit = ReminderEdit(),
+    val savedReminder: Reminder? = null,
     val expressiveTrait: ExpressiveTrait = ExpressiveTrait.NONE,
     val loading: Boolean = true,
     val loadFailed: Boolean = false,
@@ -24,7 +28,7 @@ data class EditorState(
     val savedId: String? = null,
     val exited: Boolean = false,
 )
-enum class EditorError { EMPTY, SAVE, DRAFT, MISSING }
+enum class EditorError { EMPTY, SAVE, DRAFT, MISSING, REMINDER_TIME }
 
 class EditorViewModel(
     private val repository: NotesRepository,
@@ -38,6 +42,7 @@ class EditorViewModel(
     private var originalTitle = ""
     private var originalBody = ""
     private var originalTrait = ExpressiveTrait.NONE
+    private val reminderEdit = MutableStateFlow(ReminderEdit())
     private val trait = MutableStateFlow(ExpressiveTrait.NONE)
     private var draftJob: Job? = null
     private var inputJob: Job? = null
@@ -60,19 +65,20 @@ class EditorViewModel(
                 originalBody = note?.body.orEmpty()
                 originalTrait = note?.expressiveTrait ?: ExpressiveTrait.NONE
                 trait.value = draft?.expressiveTrait ?: originalTrait
+                reminderEdit.value = draft?.reminderEdit ?: ReminderEdit()
                 title.edit { replace(0, length, draft?.title ?: originalTitle) }
                 body.edit { replace(0, length, draft?.body ?: originalBody) }
-                mutableState.value = EditorState(loading = false, draftStored = draft != null, expressiveTrait = trait.value)
+                mutableState.value = EditorState(loading = false, draftStored = draft != null, expressiveTrait = trait.value, reminderEdit = reminderEdit.value, savedReminder = note?.reminder)
                 inputJob = viewModelScope.launch {
-                    combine(snapshotFlow { title.text.toString() to body.text.toString() }, trait) { text, selected ->
-                        Triple(text.first, text.second, selected)
-                    }.collect { (t, b, selected) ->
-                        val dirty = t != originalTitle || b != originalBody || selected != originalTrait
+                    combine(snapshotFlow { title.text.toString() to body.text.toString() }, trait, reminderEdit) { text, selected, reminder ->
+                        EditorInput(text.first, text.second, selected, reminder)
+                    }.collect { (t, b, selected, reminder) ->
+                        val dirty = t != originalTitle || b != originalBody || selected != originalTrait || reminder.edited
                         mutableState.update { it.copy(dirty = dirty, canSave = t.isNotBlank() || b.isNotBlank(), draftStored = false) }
                         draftJob?.cancel()
                         draftJob = launch {
                             delay(250)
-                            storeDraft(t, b, selected, dirty)
+                            storeDraft(t, b, selected, reminder, dirty)
                         }
                     }
                 }
@@ -80,18 +86,18 @@ class EditorViewModel(
             } catch (e: Exception) {
                 if (closed) return@launch
                 mutableState.value = EditorState(loading = false, loadFailed = true,
-                    error = if (e is NoteMissingException) EditorError.MISSING else EditorError.SAVE)
+                    error = if (e is ReminderTimeException) EditorError.REMINDER_TIME else if (e is NoteMissingException) EditorError.MISSING else EditorError.SAVE)
             } finally { loadingInProgress = false }
         }
     }
 
-    private suspend fun storeDraft(t: String, b: String, selected: ExpressiveTrait, dirty: Boolean) {
+    private suspend fun storeDraft(t: String, b: String, selected: ExpressiveTrait, reminder: ReminderEdit, dirty: Boolean) {
         try {
             draftMutex.withLock {
                 if (closed || mutableState.value.busy) return
-                if (dirty) repository.putDraft(EditorDraft(sessionId, noteId, t, b, System.currentTimeMillis(), selected))
+                if (dirty) repository.putDraft(EditorDraft(sessionId, noteId, t, b, System.currentTimeMillis(), selected, reminder))
                 else repository.discardDraft(sessionId)
-                if (t == title.text.toString() && b == body.text.toString() && selected == trait.value) {
+                if (t == title.text.toString() && b == body.text.toString() && selected == trait.value && reminder == reminderEdit.value) {
                     mutableState.update { it.copy(draftStored = dirty) }
                 }
             }
@@ -104,7 +110,13 @@ class EditorViewModel(
         draftJob?.cancel()
         val t = title.text.toString()
         val b = body.text.toString()
-        draftJob = viewModelScope.launch { storeDraft(t, b, trait.value, t != originalTitle || b != originalBody || trait.value != originalTrait) }
+        draftJob = viewModelScope.launch { storeDraft(t, b, trait.value, reminderEdit.value, t != originalTitle || b != originalBody || trait.value != originalTrait || reminderEdit.value.edited) }
+    }
+
+    fun selectReminder(dueAt: Long?) {
+        if (closed || state.value.loading || state.value.loadFailed || state.value.busy) return
+        reminderEdit.value = ReminderEdit(true, dueAt)
+        mutableState.update { it.copy(reminderEdit = reminderEdit.value, error = null) }
     }
 
     fun selectTrait(selected: ExpressiveTrait) {
@@ -127,13 +139,13 @@ class EditorViewModel(
             try {
                 draftJob?.cancelAndJoin()
                 val saved = draftMutex.withLock {
-                    repository.save(noteId ?: sessionId, t, b, isNew = noteId == null, sessionId = sessionId, expressiveTrait = current.expressiveTrait)
+                    repository.save(noteId ?: sessionId, t, b, isNew = noteId == null, sessionId = sessionId, expressiveTrait = current.expressiveTrait, reminderEdit = current.reminderEdit)
                 }
                 closed = true
                 mutableState.update { it.copy(busy = false, dirty = false, savedId = saved.id) }
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) {
-                mutableState.update { it.copy(busy = false, error = if (e is NoteMissingException) EditorError.MISSING else EditorError.SAVE) }
+                mutableState.update { it.copy(busy = false, error = if (e is ReminderTimeException) EditorError.REMINDER_TIME else if (e is NoteMissingException) EditorError.MISSING else EditorError.SAVE) }
                 persistOnBackground()
             }
         }
@@ -148,7 +160,7 @@ class EditorViewModel(
             return
         }
         // Read the live fields so a back press in the same frame as an edit cannot lose text.
-        if (title.text.toString() != originalTitle || body.text.toString() != originalBody || trait.value != originalTrait) {
+        if (title.text.toString() != originalTitle || body.text.toString() != originalBody || trait.value != originalTrait || reminderEdit.value.edited) {
             mutableState.update { it.copy(confirmExit = true) }
         } else discardAndExit()
     }

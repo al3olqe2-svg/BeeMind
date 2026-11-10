@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: android-${{ github.ref }}
+  group: android-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 jobs:
   build:
@@ -65,13 +65,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          name="BeeMind-0.3.0-build-${BEEMIND_VERSION_CODE}-${SIGNING_LABEL}"
+          name="BeeMind-0.4.0-build-${BEEMIND_VERSION_CODE}-${SIGNING_LABEL}"
           cp app/build/outputs/apk/debug/app-debug.apk "dist/$name.apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "dist/$name.apk" > "dist/$name-certificate.txt"
           (cd dist && sha256sum "$name.apk" > "$name.apk.sha256")
           echo "ARTIFACT_NAME=$name" >> "$GITHUB_ENV"
           {
-            echo "### BeeMind 0.3.0 / build $BEEMIND_VERSION_CODE"
+            echo "### BeeMind 0.4.0 / build $BEEMIND_VERSION_CODE"
             echo "Signing: $SIGNING_LABEL"
             echo "Application ID: com.beemind.personal"
             echo 'APK signature verified; unit tests and lint passed.'
@@ -100,3 +100,49 @@ jobs:
       - name: Remove signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/beemind-test.jks"
+  reminder-device:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 34]
+    env:
+      BEEMIND_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build app and isolated device fixture
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Native cold-process alarms and ten-minute snooze
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install app/build/outputs/apk/debug/app-debug.apk
+            adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            python3 tools/reminder_device_check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: BeeMind-reminder-device-api-${{ matrix.api }}-build-${{ github.run_number }}
+          path: app/build/reports/reminder-device/
+          if-no-files-found: warn

@@ -37,7 +37,7 @@ This file governs all Codex work in the `BeeMind` repository. Read `PRD.md` firs
 
 ## 5. UX quality bar
 - **Arabic-first RTL**, accessible font scaling, screen-reader content descriptions, approximately 48dp touch targets, and reduced-motion support.
-- **Light UI**, purple as primary action color, and **continuous, smoothly blended rainbow gradients**, never separate colored stripes or an indiscriminate rainbow on all surfaces.
+- **Dark Only Cosmic Cyberpunk UI** (approved Stage 1.5), neon purple as primary action color, and **continuous, smoothly blended rainbow gradients**, never separate colored stripes or an indiscriminate rainbow on all surfaces.
 - Pinterest-like **staggered/masonry** notes grid with different card heights, ordered by creation date descending except unread due resurfaced notes at the top; preserve predictable reading/navigation order.
 - Long text must edit, display, and save correctly. Use bounded previews in grid, full text in details, and empty/loading/error states; avoid unnecessary animations that harm scrolling.
 - Keep a coherent palette, typographic scale, spacing, corner shapes, and meaningful trait cues. Optimize readability and identity together. No screenshots or static fake interactive controls masquerading as features.
@@ -75,3 +75,6 @@ This file governs all Codex work in the `BeeMind` repository. Read `PRD.md` firs
 - **Stage 5:** bidirectional Threads + integrated regression, performance, accessibility, and update-in-place verification.
 
 **Operating rule:** When the owner asks for Stage N, deliver Stage N only, with verifiable APK evidence and a compact Arabic testing checklist. Do not advance without explicit approval.
+
+## Approved owner decision — 10 November 2026
+Persistent APK signing is deferred. Temporary debug APKs may be delivered for testing; signature compatibility and retained-data upgrades must be verified before claiming safe in-place updates. Never uninstall automatically or commit private keys. This supersedes the earlier Stage 0 signing blocker.

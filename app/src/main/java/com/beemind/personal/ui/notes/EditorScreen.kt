@@ -60,6 +60,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                     }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     state.error?.let { error ->
                         ErrorPanel(stringResource(when (error) {
+                            EditorError.REMINDER_TIME -> R.string.reminder_time_error
                             EditorError.EMPTY -> R.string.empty_error
                             EditorError.SAVE -> R.string.save_error
                             EditorError.DRAFT -> R.string.draft_error
@@ -67,7 +68,13 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                         }))
                         TextButton(onClick = vm::clearError) { Text(stringResource(R.string.dismiss_error)) }
                     }
-                    TraitPicker(state.expressiveTrait, !state.busy, vm::selectTrait)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(1f)) { TraitPicker(state.expressiveTrait, !state.busy, vm::selectTrait) }
+                        Box(Modifier.weight(1f)) { ReminderPicker(state.reminderEdit, state.savedReminder, !state.busy, vm::selectReminder) }
+                    }
+                    val reminderDue = if (state.reminderEdit.edited) state.reminderEdit.dueAt else state.savedReminder?.takeIf { it.active }?.dueAt
+                    reminderDue?.let { Text("◷ ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary) }
                     val titleLabel = stringResource(R.string.title_hint)
                     BasicTextField(state = vm.title, enabled = !state.busy,
                         textStyle = MaterialTheme.typography.headlineMedium.copy(color = MaterialTheme.colorScheme.onSurface, textDirection = TextDirection.ContentOrRtl),

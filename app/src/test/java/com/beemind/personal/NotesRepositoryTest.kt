@@ -35,7 +35,7 @@ class NotesRepositoryTest {
     }
     private fun open() {
         database = Room.databaseBuilder(context, BeeMindDatabase::class.java, name)
-            .addMigrations(BeeMindDatabase.MIGRATION_1_2, BeeMindDatabase.MIGRATION_2_3).build()
+            .addMigrations(BeeMindDatabase.MIGRATION_1_2, BeeMindDatabase.MIGRATION_2_3, BeeMindDatabase.MIGRATION_3_4).build()
         repository = RoomNotesRepository(database, clock)
     }
     @After fun close() { database.close(); context.deleteDatabase(name) }
@@ -167,6 +167,18 @@ class NotesRepositoryTest {
         assertEquals(ExpressiveTrait.GLOW, repository.getNote("a")!!.expressiveTrait)
         repository.delete("a")
         assertNull(repository.getDraft("edit"))
+    }
+
+    @Test fun reminderAndDraftEditSurviveClosingAndReopeningRoom() = runBlocking {
+        val saved = repository.save("reminder", "عنوان", "نص", true, "s", ExpressiveTrait.GLOW,
+            ReminderEdit(true, clock.millis() + 300_000))
+        repository.putDraft(EditorDraft("draft-reminder", "reminder", "تعديل", "مسودة", 42,
+            ExpressiveTrait.ANGER, ReminderEdit(true, clock.millis() + 600_000)))
+        database.close(); open()
+        assertEquals(saved, repository.getNote("reminder"))
+        assertEquals(saved.reminder!!.dueAt, repository.observeNotes().first().single().reminderDueAt)
+        assertEquals(ReminderEdit(true, clock.millis() + 600_000), repository.getDraft("draft-reminder")!!.reminderEdit)
+        assertEquals(saved.reminder, repository.getNote("reminder")!!.reminder)
     }
 
     private class MutableClock(var now: Long = 1_000_000) : Clock() {
