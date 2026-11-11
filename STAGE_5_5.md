@@ -52,6 +52,7 @@ Room migrations, all traits, UI navigation, recreation, scheduling and compact d
 Physical phone/TalkBack/smoothness acceptance remains the owner's test.
 CI pins official Emulator 35.6.11 (build 13610412): 37.2.13 showed a host
 RenderThread segfault while composing API 34 scenes, with ample host memory.
+API 34 uses the guest software renderer to avoid the crashing host shader path.
 The Android API 29/34 images, cold-process alarm tests and assertions are unchanged.
 Manual diagnostic-only runs are explicitly labeled and are not full verification.
 
