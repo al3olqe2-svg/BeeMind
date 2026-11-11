@@ -32,21 +32,23 @@ import com.beemind.personal.ui.theme.BeeDesign
 @Composable
 fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
     onResume: (DraftSummary) -> Unit, onRetry: () -> Unit) {
-    val loadingLabel = stringResource(R.string.loading_notes)
-    val density = LocalDensity.current
-    val widthPx = LocalWindowInfo.current.containerSize.width
-    val columns = masonryColumns((widthPx / density.density).toInt(), density.fontScale)
-    Column(Modifier.fillMaxSize().background(BeeDesign.atmosphere).systemBarsPadding()) {
-        Box(Modifier.fillMaxWidth().padding(start = BeeDesign.page, end = BeeDesign.page, top = 48.dp, bottom = 24.dp)) {
+    Box(Modifier.fillMaxSize().background(BeeDesign.atmosphere).systemBarsPadding()) {
+        Box(Modifier.fillMaxWidth().padding(start = BeeDesign.page, end = BeeDesign.page, top = 48.dp)) {
             RainbowLine()
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(Modifier.fillMaxSize().padding(top = 88.dp, bottom = 96.dp)) {
             when (state) {
-                HomeState.Loading -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = loadingLabel })
+                HomeState.Loading -> {
+                    val loadingLabel = stringResource(R.string.loading_notes)
+                    LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = loadingLabel })
+                }
                 HomeState.Error -> Box(Modifier.padding(BeeDesign.page)) {
                     ErrorPanel(stringResource(R.string.notes_error), onRetry = onRetry)
                 }
                 is HomeState.Ready -> if (state.notes.isNotEmpty()) {
+                    val density = LocalDensity.current
+                    val widthPx = LocalWindowInfo.current.containerSize.width
+                    val columns = masonryColumns((widthPx / density.density).toInt(), density.fontScale)
                     LazyVerticalStaggeredGrid(
                         columns = StaggeredGridCells.Fixed(columns),
                         modifier = Modifier.fillMaxSize().testTag("notes_grid").semantics { isTraversalGroup = true },
@@ -62,7 +64,7 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
             }
         }
         if (state is HomeState.Ready) {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
                 NeonAdd(onClick = { state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate() })
             }

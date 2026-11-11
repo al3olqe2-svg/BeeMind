@@ -1,4 +1,4 @@
-"""Bounded HWUI probes on disposable emulators, before any reminder is seeded."""
+"""Bounded HWUI probes on disposable emulators, using synthetic content."""
 from pathlib import Path
 import os
 import subprocess
@@ -8,7 +8,11 @@ OUT = Path('app/build/reports/ui-device')
 OUT.mkdir(parents=True, exist_ok=True)
 
 def adb(*args, timeout=45):
-    return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT, timeout=timeout)
+    try:
+        return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT, timeout=timeout)
+    except subprocess.CalledProcessError as failure:
+        print(failure.output, flush=True)
+        raise
 
 assert adb('shell', 'getprop', 'ro.kernel.qemu').strip() == '1'
 adb('root')
