@@ -154,8 +154,10 @@ jobs:
           target: google_apis
           disable-animations: true
           ram-size: 2048M
-          # Emulator 37 deprecates swiftshader_indirect; use its supported software selector.
-          emulator-options: -no-window -gpu software -noaudio -no-boot-anim -camera-back none
+          # 37.2.13 segfaults in the host RenderThread on API 34 composition.
+          # Official stable 35.6.11 keeps the same Android images and all assertions.
+          emulator-build: 13610412
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash tools/run_device_checks.sh
       - name: Capture emulator host resources
         if: always()

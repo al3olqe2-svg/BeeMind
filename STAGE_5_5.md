@@ -50,6 +50,10 @@ Native API 29/34 CI runs TemporalDeviceTest, ThreadsDeviceTest, EditorDeviceTest
 the existing cold-process alarm/real ten-minute Snooze/Done harness. JVM tests cover
 Room migrations, all traits, UI navigation, recreation, scheduling and compact dates.
 Physical phone/TalkBack/smoothness acceptance remains the owner's test.
+CI pins official Emulator 35.6.11 (build 13610412): 37.2.13 showed a host
+RenderThread segfault while composing API 34 scenes, with ample host memory.
+The Android API 29/34 images, cold-process alarm tests and assertions are unchanged.
+Manual diagnostic-only runs are explicitly labeled and are not full verification.
 
 Signing is temporary and non-upgrade-guaranteed. Do not uninstall important data;
 uninstall may erase local notes. No private key or account/cloud service was added.
