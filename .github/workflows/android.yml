@@ -146,6 +146,7 @@ jobs:
       - name: Native cold-process alarms and ten-minute snooze
         env:
           UI_PROBE_COMPONENTS: ${{ inputs.ui_probe_components }}
+          UI_PROBE_ONLY: ${{ inputs.ui_probe_only }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
@@ -154,21 +155,7 @@ jobs:
           disable-animations: true
           ram-size: 2048M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            adb install app/build/outputs/apk/debug/app-debug.apk
-            adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            if [ "${{ inputs.ui_probe_only }}" = "true" ]; then
-              python3 tools/ui_device_probe.py
-            else
-              adb shell am instrument -w -r -e class com.beemind.personal.TemporalDeviceTest com.beemind.personal.test/androidx.test.runner.AndroidJUnitRunner | tee temporal-device.txt
-              grep -q 'OK (1 test)' temporal-device.txt
-              adb shell am instrument -w -r -e class com.beemind.personal.ThreadsDeviceTest com.beemind.personal.test/androidx.test.runner.AndroidJUnitRunner | tee threads-device.txt
-              grep -q 'OK (1 test)' threads-device.txt
-              adb shell am instrument -w -r -e class com.beemind.personal.EditorDeviceTest com.beemind.personal.test/androidx.test.runner.AndroidJUnitRunner | tee editor-device.txt
-              grep -q 'OK (1 test)' editor-device.txt
-              python3 tools/reminder_device_check.py
-              python3 tools/ui_device_probe.py
-            fi
+          script: bash tools/run_device_checks.sh
       - name: Capture emulator host resources
         if: always()
         run: |
@@ -181,7 +168,5 @@ jobs:
           path: |
             app/build/reports/reminder-device/
             app/build/reports/ui-device/
-            temporal-device.txt
-            threads-device.txt
-            editor-device.txt
+            *DeviceTest.txt
           if-no-files-found: warn
