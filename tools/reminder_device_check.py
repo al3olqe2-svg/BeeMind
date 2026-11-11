@@ -15,7 +15,11 @@ PACKAGE = 'com.beemind.personal'
 def adb(*args):
     # An Android shell command must not consume the whole CI job if adbd/AMS stalls.
     timeout = 180 if 'instrument' in args else 45
-    return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT, timeout=timeout)
+    try:
+        return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT, timeout=timeout)
+    except subprocess.CalledProcessError as failure:
+        print(failure.output, flush=True)
+        raise
 
 def evidence(name, *args):
     try:
@@ -87,7 +91,11 @@ def tap_notification_action(text):
             buttons = [child for row in rows for child in row.iter('node')
                        if child.get('resource-id', '').endswith('/expand_button')
                        and child.get('content-desc') == 'Expand']
-            assert buttons, 'No BeeMind notification action or collapsed BeeMind row'
+            if not buttons:
+                # A wake-up/first SystemUI frame can ignore the initial expansion.
+                # Poll the actual shade; never synthesize the PendingIntent action.
+                adb('shell', 'cmd', 'statusbar', 'expand-notifications')
+                continue
             node = buttons[0]
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', node.attrib['bounds']))
         adb('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))

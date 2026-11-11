@@ -21,7 +21,7 @@ adb('logcat', '-c')
 with (OUT / 'live-logcat.txt').open('w', encoding='utf-8') as log:
     logger = subprocess.Popen(['adb', 'logcat', '-v', 'threadtime'], stdout=log, stderr=subprocess.STDOUT)
     try:
-        allowed = ['empty', 'background', 'metrics', 'insets', 'rainbow', 'fab', 'text', 'card', 'grid', 'composition', 'home-empty', 'home-plain', 'home-glow', 'home', 'main']
+        allowed = ['empty', 'background', 'metrics', 'insets', 'rainbow', 'fab', 'text', 'card', 'grid', 'composition', 'home-loading', 'home-empty', 'home-plain', 'home-glow', 'home', 'main']
         requested = os.environ.get('UI_PROBE_COMPONENTS', '').strip()
         components = [name.strip() for name in requested.split(',')] if requested else allowed
         assert all(name in allowed for name in components), 'Unknown diagnostic scene'

@@ -38,10 +38,9 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
         }
         Box(Modifier.fillMaxSize().padding(top = 88.dp, bottom = 96.dp)) {
             when (state) {
-                HomeState.Loading -> {
-                    val loadingLabel = stringResource(R.string.loading_notes)
-                    LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = loadingLabel })
-                }
+                HomeState.Loading -> Spacer(Modifier.semantics {
+                    stateDescription = "جارٍ تحميل الملاحظات"
+                })
                 HomeState.Error -> Box(Modifier.padding(BeeDesign.page)) {
                     ErrorPanel(stringResource(R.string.notes_error), onRetry = onRetry)
                 }

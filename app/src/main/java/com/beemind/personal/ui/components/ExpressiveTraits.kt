@@ -41,6 +41,7 @@ fun Modifier.expressiveHalo(trait: ExpressiveTrait): Modifier = if (trait == Exp
     val brush = trait.edgeBrush()
     val radius = CornerRadius(20.dp.toPx())
     onDrawBehind {
+        if (size.width <= 0f || size.height <= 0f) return@onDrawBehind
         drawRoundRect(brush, cornerRadius = radius, style = Stroke(10.dp.toPx()), alpha = 0.055f)
         drawRoundRect(brush, cornerRadius = radius, style = Stroke(7.dp.toPx()), alpha = 0.09f)
         drawRoundRect(brush, cornerRadius = radius, style = Stroke(4.dp.toPx()), alpha = 0.18f)

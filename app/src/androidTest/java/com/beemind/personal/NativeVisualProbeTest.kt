@@ -63,6 +63,7 @@ class NativeVisualProbeTest {
                             item { Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium) }
                         }
                         "text" -> Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium)
+                        "home-loading" -> HomeScreen(HomeState.Loading, {}, {}, {}, {})
                         "home-empty", "home-plain", "home-glow", "home" -> {
                             val now = System.currentTimeMillis()
                             val notes = when (component) {
