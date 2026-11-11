@@ -51,6 +51,17 @@ class NotesRepositoryTest {
         assertEquals(b, repository.getNote("b"))
     }
 
+    @Test fun newDraftRecoveryIsNotMaskedByANewerExistingNoteEdit() = runBlocking {
+        repository.save("existing", "", "نص محفوظ", true, "created")
+        repository.putDraft(EditorDraft("unfinished-new", null, "", "مسودة جديدة", 10))
+        repository.putDraft(EditorDraft("empty-existing-edit", "existing", "", "", 20))
+        assertEquals(DraftSummary("unfinished-new", null), repository.observeLatestDraft().first())
+        assertEquals(DraftSummary("empty-existing-edit", "existing"), repository.latestDraftForNote("existing"))
+        assertEquals("مسودة جديدة", repository.getDraft("unfinished-new")!!.body)
+        assertEquals("", repository.getDraft("empty-existing-edit")!!.body)
+        assertEquals("نص محفوظ", repository.getNote("existing")!!.body)
+    }
+
     @Test fun blankNotesAreRejectedWithoutRows() = runBlocking {
         for ((title, body) in listOf("" to "", " \n\t" to "\u00a0 \n")) {
             try { repository.save("empty", title, body, true, "draft"); fail("Blank note was saved") }

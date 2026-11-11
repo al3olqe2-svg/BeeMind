@@ -33,6 +33,8 @@ Back and explicit Save capture live fields, freeze departure input, flush the re
 draft and await the atomic Room note commit. Save returns home; Back returns to the
 previous route. Background/Activity pause flushes without debounce. Activity recreation
 retains ViewModel text, and process recovery reads Room drafts without large Bundles.
+Home + resumes the latest uncommitted new-note draft; newer existing-note drafts
+cannot mask it. Existing-note drafts resume from that note's Edit action.
 An empty new note is discarded; an existing note temporarily cleared retains its saved
 content plus the empty recovery draft. Failed writes retain text, show an error and
 prevent successful-save navigation. There is no success snackbar or save/discard dialog.
