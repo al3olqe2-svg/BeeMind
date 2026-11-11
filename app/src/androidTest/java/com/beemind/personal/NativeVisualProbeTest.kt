@@ -7,7 +7,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import com.beemind.personal.ui.theme.BeeDesign
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +44,15 @@ class NativeVisualProbeTest {
                     when (component) {
                         "empty" -> Unit
                         "background" -> Box(Modifier.fillMaxSize().background(BeeDesign.atmosphere))
+                        "metrics" -> {
+                            check(LocalWindowInfo.current.containerSize.width >= 0)
+                            check(LocalDensity.current.density > 0)
+                        }
+                        "insets" -> Box(Modifier.fillMaxSize().systemBarsPadding())
+                        "composition" -> Box(Modifier.fillMaxSize().background(BeeDesign.atmosphere)) {
+                            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 48.dp)) { RainbowLine() }
+                            Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)) { NeonAdd { } }
+                        }
                         "rainbow" -> RainbowLine()
                         "fab" -> NeonAdd { }
                         "text" -> Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium)
