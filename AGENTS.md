@@ -78,3 +78,11 @@ This file governs all Codex work in the `BeeMind` repository. Read `PRD.md` firs
 
 ## Approved owner decision — 10 November 2026
 Persistent APK signing is deferred. Temporary debug APKs may be delivered for testing; signature compatibility and retained-data upgrades must be verified before claiming safe in-place updates. Never uninstall automatically or commit private keys. This supersedes the earlier Stage 0 signing blocker.
+
+## Stage 5.5 contract
+The owner authorized Stage 5 PR #4 merge after acceptance and a separate Stage 5.5
+branch from updated main. Stage 5.5 uses the superseding minimal UX/data contracts in
+PRD.md: titleless body editor, real serialized autosave, compact common time sheet and
+body-only reading. Preserve Room 6, all traits, private capsule projections and stable
+application ID. Keep Stage 5.5 open and unmerged for owner phone acceptance. Stage 6
+is not authorized. Persistent signing remains deferred under the decision above.

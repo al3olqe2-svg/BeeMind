@@ -63,7 +63,7 @@ interface NotesDao {
     @Query("SELECT substr(CAST(title AS BLOB), :offset, :count) FROM editor_drafts WHERE sessionId = :sessionId")
     suspend fun readDraftTitleChunk(sessionId: String, offset: Int, count: Int): ByteArray?
 
-    @Query("SELECT sessionId, noteId FROM editor_drafts ORDER BY editedAt DESC, sessionId ASC LIMIT 1")
+    @Query("SELECT sessionId, noteId FROM editor_drafts WHERE noteId IS NULL ORDER BY editedAt DESC, sessionId ASC LIMIT 1")
     fun observeLatestDraft(): Flow<DraftSummary?>
 
     @Query("SELECT sessionId, noteId FROM editor_drafts WHERE noteId = :noteId ORDER BY editedAt DESC, sessionId ASC LIMIT 1")

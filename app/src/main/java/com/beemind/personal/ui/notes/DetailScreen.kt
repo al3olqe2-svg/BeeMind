@@ -8,11 +8,13 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.beemind.personal.R
@@ -25,6 +27,8 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
     onBack: () -> Unit, onEdit: () -> Unit, onOpenLinked: (String) -> Unit) {
     BackHandler(enabled = deletion.busy) { }
     LaunchedEffect(deletion.deleted) { if (deletion.deleted) onBack() }
+    var lockedTraitsOpen by remember { mutableStateOf(false) }
+    var threadsOpen by remember { mutableStateOf(false) }
     val temporalError by vm.temporalError.collectAsState()
     val note = (content as? DetailContent.Ready)?.note
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
@@ -38,11 +42,14 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
         onDispose { lifecycle.removeObserver(observer) }
     }
     Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.note_details), style = MaterialTheme.typography.titleMedium) },
-            navigationIcon = { BeeBack(onBack, !deletion.busy) }, actions = {
+        TopAppBar(title = { Text("") },
+            actions = {
                 if (note != null) {
                     IconButton(onClick = onEdit, enabled = !deletion.busy && !note.locked) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_note))
+                    }
+                    IconButton(onClick = { threadsOpen = true }, enabled = !deletion.busy, modifier = Modifier.testTag("manage_threads")) {
+                        Icon(Icons.Default.Share, "الخيوط")
                     }
                     IconButton(onClick = { vm.confirmDelete(true) }, enabled = !deletion.busy) {
                         Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_note), tint = MaterialTheme.colorScheme.error)
@@ -61,12 +68,16 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                 } else if (note.locked) {
                     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        item { CapsuleCover(checkNotNull(note.unlockAt)) }
-                        item { ThreadsSection(vm, onOpenLinked, !deletion.busy) }
-                        item { TemporalPicker("↗ العودة", note.resurfaceAt, !deletion.busy, vm::scheduleResurface, isDraft = false) }
-                        note.resurfaceAt?.let { due -> item { Text("موعد العودة: ${reminderTimestamp(due)}", style = MaterialTheme.typography.bodySmall) } }
-                        if (temporalError) item { Text("تعذر حفظ الموعد. اختر وقتًا مستقبليًا وحاول مجددًا.", color = MaterialTheme.colorScheme.error) }
-                        item { ReminderDetails(note.reminder, onEdit, locked = true) }
+                        item {
+                            Surface(onClick = { lockedTraitsOpen = true }, color = BeeDesign.surface,
+                                modifier = Modifier.semantics { contentDescription = "إدارة مواعيد الكبسولة" }) {
+                                Column {
+                                    CapsuleCover(checkNotNull(note.unlockAt))
+                                    Text("المواعيد", color = BeeDesign.accent, modifier = Modifier.padding(16.dp))
+                                }
+                            }
+                        }
+
                     }
                 } else {
                     val chunks = remember(note.body) { readingChunks(note.body) }
@@ -74,34 +85,9 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                         LazyColumn(Modifier.fillMaxSize().padding(padding),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            item(key = "trait") {
-                                Text(stringResource(R.string.trait_current, stringResource(note.expressiveTrait.labelResource())),
-                                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                            }
-                            item(key = "reminder") { ReminderDetails(note.reminder, onEdit) }
-                            note.resurfaceAt?.let { due -> item(key = "resurface") {
-                                Text((if (note.resurfaceSeenAt != null) "عودة تمت مشاهدتها: " else "موعد العودة: ") + reminderTimestamp(due),
-                                    style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent)
-                            } }
                             if (temporalError) item(key = "return_error") {
-                                Text("تعذر حفظ حالة العودة. حاول مجددًا.", color = MaterialTheme.colorScheme.error)
-                                TextButton(onClick = vm::readableOpened) { Text("إعادة المحاولة") }
+                                TextButton(onClick = vm::readableOpened) { Text("تعذر حفظ حالة العودة؛ إعادة المحاولة") }
                             }
-                            item(key = "threads") { ThreadsSection(vm, onOpenLinked, !deletion.busy) }
-                            item(key = "dates") {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(stringResource(R.string.created_date, formatNoteTimestamp(note.createdAt)),
-                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (note.updatedAt != note.createdAt) Text(
-                                        stringResource(R.string.updated_date, formatNoteTimestamp(note.updatedAt)),
-                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                            note.title?.let { title -> item(key = "title") {
-                                Text(title, style = MaterialTheme.typography.headlineMedium,
-                                    modifier = Modifier.semantics { heading() })
-                            } }
-                            item(key = "divider") { HorizontalDivider(Modifier.padding(vertical = 8.dp), color = BeeDesign.border.copy(alpha = 0.55f)) }
                             itemsIndexed(chunks, key = { index, _ -> "body_$index" }) { _, chunk ->
                                 Text(chunk, style = MaterialTheme.typography.bodyLarge)
                             }
@@ -110,6 +96,18 @@ fun DetailScreen(vm: DetailViewModel, content: DetailContent, deletion: DeleteSt
                 }
             }
         }
+    }
+    if (lockedTraitsOpen && note?.locked == true) ModalBottomSheet(onDismissRequest = { lockedTraitsOpen = false },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = BeeDesign.surface) {
+        Column(Modifier.padding(20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            TemporalPicker("↗ العودة", note.resurfaceAt, !deletion.busy, vm::scheduleResurface, isDraft = false)
+            ReminderDetails(note.reminder, onEdit, locked = true)
+            if (temporalError) Text("تعذر حفظ الموعد؛ حاول مجددًا.", color = MaterialTheme.colorScheme.error)
+        }
+    }
+    if (threadsOpen) ModalBottomSheet(onDismissRequest = { threadsOpen = false },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = BeeDesign.surface) {
+        Box(Modifier.padding(20.dp).padding(bottom = 24.dp)) { ThreadsSection(vm, { threadsOpen = false; onOpenLinked(it) }, !deletion.busy) }
     }
     if (deletion.confirming) AlertDialog(
         onDismissRequest = { vm.confirmDelete(false) },

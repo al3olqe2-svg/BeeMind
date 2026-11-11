@@ -7,6 +7,7 @@ interface NotesRepository {
     suspend fun setLinked(a: String, b: String, linked: Boolean)
     fun observeNotes(): Flow<List<NoteSummary>>
     fun observeNote(id: String): Flow<Note?>
+    /** Home resumes an uncommitted new note; existing edits use latestDraftForNote. */
     fun observeLatestDraft(): Flow<DraftSummary?>
     suspend fun getNote(id: String): Note?
     suspend fun getDraft(sessionId: String): EditorDraft?

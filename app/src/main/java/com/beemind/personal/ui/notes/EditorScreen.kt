@@ -1,13 +1,11 @@
 package com.beemind.personal.ui.notes
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -35,13 +33,13 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
     LaunchedEffect(state.exited) { if (state.exited) onBack() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, vm) {
-        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) vm.persistOnBackground() }
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_PAUSE) vm.persistOnBackground() }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
     val focus = LocalFocusManager.current
-    var review by remember { mutableStateOf(false) }
-    val save = { focus.clearFocus(); if (state.temporalEdit.sealUntil != null) { vm.stay(); review = true } else vm.save() }
+    var traitsOpen by remember { mutableStateOf(false) }
+    val save = { focus.clearFocus(); vm.save() }
     if (state.lockedUntil != null) {
         Scaffold(topBar = { TopAppBar(title = { Text("كبسولة زمنية") }, navigationIcon = { BeeBack(vm::requestExit, !state.busy) }) }) { padding ->
             CapsuleCover(state.lockedUntil, Modifier.padding(padding).padding(24.dp))
@@ -49,7 +47,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
         return
     }
     Scaffold(modifier = Modifier.imePadding(), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.editor_title), style = MaterialTheme.typography.titleMedium) },
+        TopAppBar(title = { Text("") },
             navigationIcon = { BeeBack(vm::requestExit, !state.busy) },
             actions = { Button(onClick = save, enabled = !state.loading && !state.loadFailed && !state.busy && state.canSave,
                 shape = BeeDesign.button, modifier = Modifier.padding(end = 12.dp).testTag("save_note")) {
@@ -62,11 +60,6 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                 state.loading -> LinearProgressIndicator(Modifier.fillMaxWidth())
                 state.loadFailed -> ErrorPanel(stringResource(if (state.error == EditorError.MISSING) R.string.note_missing else R.string.note_load_error), onRetry = vm::load)
                 else -> {
-                    Text(stringResource(when {
-                        state.draftStored -> R.string.draft_stored
-                        state.dirty -> R.string.draft_pending
-                        else -> R.string.editor_hint
-                    }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     state.error?.let { error ->
                         ErrorPanel(stringResource(when (error) {
                             EditorError.REMINDER_TIME -> R.string.reminder_time_error
@@ -77,33 +70,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
                         }))
                         TextButton(onClick = vm::clearError) { Text(stringResource(R.string.dismiss_error)) }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(1f)) { TraitPicker(state.expressiveTrait, !state.busy, vm::selectTrait) }
-                        Box(Modifier.weight(1f)) { ReminderPicker(state.reminderEdit, state.savedReminder, !state.busy, vm::selectReminder) }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val resurface = if (state.temporalEdit.resurfaceEdited) state.temporalEdit.resurfaceAt else state.savedResurfaceAt
-                        Box(Modifier.weight(1f)) { TemporalPicker("↗ العودة", resurface, !state.busy, vm::selectResurface) }
-                        Box(Modifier.weight(1f)) { TemporalPicker("◈ كبسولة زمنية", state.temporalEdit.sealUntil, !state.busy, vm::selectCapsule) }
-                    }
-                    val resurfaceDue = if (state.temporalEdit.resurfaceEdited) state.temporalEdit.resurfaceAt else state.savedResurfaceAt
-                    resurfaceDue?.let { Text("العودة: ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent) }
-                    state.temporalEdit.sealUntil?.let { Text("إغلاق حتى: ${reminderTimestamp(it)} • ستراجع المحتوى عند الحفظ", style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent) }
-                    val reminderDue = if (state.reminderEdit.edited) state.reminderEdit.dueAt else state.savedReminder?.takeIf { it.active }?.dueAt
-                    reminderDue?.let { Text("◷ ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary) }
-                    val titleLabel = stringResource(R.string.title_hint)
-                    BasicTextField(state = vm.title, enabled = !state.busy,
-                        textStyle = MaterialTheme.typography.headlineMedium.copy(color = MaterialTheme.colorScheme.onSurface, textDirection = TextDirection.ContentOrRtl),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 3),
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("editor_title").semantics { contentDescription = titleLabel },
-                        decorator = { inner -> Box(Modifier.padding(vertical = 8.dp)) {
-                            if (vm.title.text.isEmpty()) Text(titleLabel, style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            inner()
-                        } })
-                    HorizontalDivider(color = BeeDesign.border.copy(alpha = 0.55f))
+                    TextButton(onClick = { traitsOpen = true }, enabled = !state.busy) { Text("السمات") }
                     val bodyLabel = stringResource(R.string.body_hint)
                     BasicTextField(state = vm.body, enabled = !state.busy,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface, textDirection = TextDirection.ContentOrRtl),
@@ -119,24 +86,27 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
             }
         }
     }
-    if (review && state.temporalEdit.sealUntil != null) AlertDialog(
-        onDismissRequest = { if (!state.busy) review = false },
-        title = { Text("إغلاق رسالتك إلى المستقبل؟") },
-        text = { LazyColumn(Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("لن تستطيع قراءة العنوان أو المحتوى أو تعديلهما حتى ${reminderTimestamp(state.temporalEdit.sealUntil)}. لا يمكن إلغاء القفل بعد تأكيده.") }
-            item { Text("هذا قفل داخل التطبيق، وليس تشفيرًا.", style = MaterialTheme.typography.bodySmall) }
-            item { Text(vm.title.text.toString(), style = MaterialTheme.typography.titleMedium) }
-            itemsIndexed(readingChunks(vm.body.text.toString())) { _, chunk -> Text(chunk, style = MaterialTheme.typography.bodyMedium) }
-            state.error?.let { item { Text("تعذر الإغلاق. تحقق من أن جميع المواعيد المختارة ما زالت في المستقبل، ثم حاول مجددًا.", color = MaterialTheme.colorScheme.error) } }
-        } },
-        confirmButton = { TextButton(onClick = vm::save, enabled = !state.busy && state.canSave) { Text(if (state.busy) "جارٍ الإغلاق…" else "تأكيد الإغلاق والحفظ") } },
-        dismissButton = { TextButton(onClick = { review = false }, enabled = !state.busy) { Text("العودة للتعديل") } })
-    if (state.confirmExit) AlertDialog(onDismissRequest = vm::stay,
-        title = { Text(stringResource(R.string.unsaved_title)) },
-        text = { Text(stringResource(R.string.unsaved_body)) },
-        confirmButton = { TextButton(onClick = save, enabled = state.canSave && !state.busy) { Text(stringResource(R.string.save_and_leave)) } },
-        dismissButton = { Column {
-            TextButton(onClick = vm::stay) { Text(stringResource(R.string.keep_writing)) }
-            TextButton(onClick = vm::discardAndExit, enabled = !state.busy) { Text(stringResource(R.string.discard_changes), color = MaterialTheme.colorScheme.error) }
-        } })
+    if (traitsOpen) ModalBottomSheet(onDismissRequest = { traitsOpen = false }, containerColor = BeeDesign.surface,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)
+            .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(1f)) { TraitPicker(state.expressiveTrait, !state.busy, vm::selectTrait) }
+                        Box(Modifier.weight(1f)) { ReminderPicker(state.reminderEdit, state.savedReminder, !state.busy, vm::selectReminder) }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val resurface = if (state.temporalEdit.resurfaceEdited) state.temporalEdit.resurfaceAt else state.savedResurfaceAt
+                        Box(Modifier.weight(1f)) { TemporalPicker("↗ العودة", resurface, !state.busy, vm::selectResurface) }
+                        Box(Modifier.weight(1f)) { TemporalPicker("◈ كبسولة زمنية", state.temporalEdit.sealUntil, !state.busy, vm::selectCapsule) }
+                    }
+                    val resurfaceDue = if (state.temporalEdit.resurfaceEdited) state.temporalEdit.resurfaceAt else state.savedResurfaceAt
+                    resurfaceDue?.let { Text("العودة: ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent) }
+                    state.temporalEdit.sealUntil?.let { Text("إغلاق حتى: ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall, color = BeeDesign.accent) }
+                    val reminderDue = if (state.reminderEdit.edited) state.reminderEdit.dueAt else state.savedReminder?.takeIf { it.active }?.dueAt
+                    reminderDue?.let { Text("◷ ${reminderTimestamp(it)}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary) }
+            if (!state.reminderEdit.edited) ReminderDetails(state.savedReminder, onEdit = { }, locked = true)
+            TextButton(onClick = { traitsOpen = false }) { Text("تم") }
+        }
+    }
 }

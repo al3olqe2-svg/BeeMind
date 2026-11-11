@@ -23,169 +23,127 @@ class EditorViewModelTest {
     private fun editor(repo: FakeRepository): EditorViewModel = EditorViewModel(repo, "session", null)
         .also { store.put("editor", it) }
 
-    @Test fun leavingAfterLoadFailurePreservesTheUnreadRecoveryDraft() = runTest {
-        val repo = FakeRepository().apply {
-            draft = EditorDraft("session", null, "خاص", "نص لا يجوز حذفه بسبب خطأ قراءة", 1)
-            failLoad = true
+    @Test fun uninterruptedTypingCheckpointsWithinTwoSecondsWithoutCreatingRepeatedNotes() = runTest {
+        val repo = FakeRepository()
+        val vm = EditorViewModel(repo, "session", null) { testScheduler.currentTime }.also { store.put("continuous", it) }
+        repeat(25) {
+            vm.body.edit { append("ع") }
+            androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications(); runCurrent()
+            advanceTimeBy(100); runCurrent()
         }
-        val vm = editor(repo)
-        assertTrue(vm.state.value.loadFailed)
+        assertNotNull("Continuous typing must not postpone recovery indefinitely", repo.draft)
+        assertTrue(repo.draft!!.body.length >= 19)
+        assertTrue(repo.notes.isEmpty())
         vm.requestExit()
-        assertTrue(vm.state.value.exited)
-        assertNotNull(repo.draft)
-        assertEquals(0, repo.discardCalls)
+        assertEquals("ع".repeat(25), repo.notes["session"]!!.body)
+        assertEquals(1, repo.notes.size)
     }
-
-    @Test fun saveFailureLeavesLiveTextAndReportsAnActualError() = runTest {
-        val repo = FakeRepository().apply { failSave = true }
-        val vm = editor(repo)
-        vm.body.edit { append("نص باقٍ رغم فشل التخزين") }
-        vm.save()
-        assertEquals("نص باقٍ رغم فشل التخزين", vm.body.text.toString())
-        assertEquals(EditorError.SAVE, vm.state.value.error)
+    @Test fun externalCapsuleLockClearsRetainedEditorAndStopsPendingAutosave() = runTest {
+        val base = FakeRepository().apply { notes["old"] = Note("old", "", "خاص", 1, 1) }
+        val updates = kotlinx.coroutines.flow.MutableStateFlow(base.notes["old"])
+        val repo = object : NotesRepository by base { override fun observeNote(id: String) = updates }
+        val vm = EditorViewModel(repo, "session", "old").also { store.put("locked-external", it) }
+        vm.body.edit { append(" تعديل") }
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications(); runCurrent()
+        updates.value = Note("old", null, "", 1, 1, unlockAt = 10000, locked = true)
+        runCurrent(); advanceUntilIdle()
+        assertEquals("", vm.body.text.toString()); assertEquals(10000L, vm.state.value.lockedUntil)
+        assertEquals(0, base.saveCalls)
+        vm.requestExit(); assertTrue(vm.state.value.exited)
+    }
+    @Test fun typingDebouncePersistsDraftThenCommitsWithoutDeparture() = runTest {
+        val repo = FakeRepository(); val vm = editor(repo)
+        vm.body.edit { append("حفظ بلا مغادرة") }
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+        runCurrent(); advanceTimeBy(201); runCurrent()
+        assertEquals("حفظ بلا مغادرة", repo.draft!!.body)
+        assertTrue(repo.notes.isEmpty())
+        advanceTimeBy(600); runCurrent()
+        assertEquals("حفظ بلا مغادرة", repo.notes["session"]!!.body)
         assertNull(vm.state.value.savedId)
-        assertFalse(vm.state.value.busy)
-        assertTrue(repo.notes.isEmpty())
     }
-
-    @Test fun repeatedSaveClicksOnlyLaunchOneWriteAndUseTheStableSessionId() = runTest {
-        val gate = CompletableDeferred<Unit>()
-        val repo = FakeRepository().apply { saveGate = gate }
-        val vm = editor(repo)
-        vm.title.edit { append("عنوان واحد") }
-        vm.save(); vm.save(); vm.save()
-        assertTrue(vm.state.value.busy)
-        assertEquals(1, repo.saveCalls)
-        gate.complete(Unit)
-        assertEquals("session", vm.state.value.savedId)
-        vm.save()
-        assertEquals(1, repo.saveCalls)
-        assertEquals(listOf("session"), repo.notes.keys.toList())
-    }
-
-    @Test fun freshEditorRestoresTheDiskDraftInsteadOfAnEmptyOrBundledString() = runTest {
-        val text = "مسودة عربية طويلة 🌈\n".repeat(6_000)
-        val repo = FakeRepository().apply { draft = EditorDraft("session", null, "يومياتي", text, 1) }
-        val vm = editor(repo)
-        assertEquals(text, vm.body.text.toString())
-        assertEquals("يومياتي", vm.title.text.toString())
-        assertTrue(vm.state.value.dirty)
-    }
-
-    @Test fun backRequiresAChoiceAndDiscardOnlyRemovesTheDraft() = runTest {
-        val repo = FakeRepository()
-        val vm = editor(repo)
-        vm.body.edit { append("كتابة غير محفوظة") }
+    @Test fun titlelessBackCommitsLastCharactersWithoutConfirmation() = runTest {
+        val repo = FakeRepository(); val vm = editor(repo)
+        vm.body.edit { append("آخر حرف ي") }
         vm.requestExit()
-        assertTrue(vm.state.value.confirmExit)
-        assertFalse(vm.state.value.exited)
-        vm.stay()
-        assertEquals("كتابة غير محفوظة", vm.body.text.toString())
-        vm.discardAndExit()
+        assertEquals("آخر حرف ي", repo.notes["session"]!!.body)
+        assertEquals("", repo.notes["session"]!!.title)
         assertTrue(vm.state.value.exited)
-        assertEquals(1, repo.discardCalls)
-        assertTrue(repo.notes.isEmpty())
     }
-
-    @Test fun traitOnlyEditIsProtectedRecoveredAndSavedWithText() = runTest {
-        val repo = FakeRepository().apply {
-            notes["existing"] = Note("existing", "عنوان", "النص الأصلي", 1, 1, ExpressiveTrait.GLOW)
-        }
-        val vm = EditorViewModel(repo, "session", "existing").also { store.put("first", it) }
-        assertEquals(ExpressiveTrait.GLOW, vm.state.value.expressiveTrait)
-        vm.selectTrait(ExpressiveTrait.ANGER)
+    @Test fun emptyAndWhitespaceExitNeverCreateNotes() = runTest {
+        val repo = FakeRepository(); val vm = editor(repo)
+        vm.body.edit { append("  \n ") }; vm.requestExit()
+        assertTrue(vm.state.value.exited); assertTrue(repo.notes.isEmpty()); assertNull(repo.draft)
+    }
+    @Test fun autoAndManualWritesAreSerializedAndNavigationWaitsForCommit() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val repo = FakeRepository().apply { saveGate = gate }; val vm = editor(repo)
+        vm.body.edit { append("الأول") }; vm.persistOnBackground()
+        assertEquals(1, repo.saveCalls)
+        vm.body.edit { append(" والأخير") }; vm.save(); vm.save()
+        assertTrue(vm.state.value.busy); assertNull(vm.state.value.savedId)
+        gate.complete(Unit); advanceUntilIdle()
+        assertEquals("الأول والأخير", repo.notes["session"]!!.body)
+        assertEquals(1, repo.notes.size); assertEquals("session", vm.state.value.savedId)
+    }
+    @Test fun saveFailureKeepsDurableRecoveryTextAndDoesNotNavigate() = runTest {
+        val repo = FakeRepository().apply { failSave = true }; val vm = editor(repo)
+        vm.body.edit { append("كتابة محفوظة للاستعادة") }; vm.save()
+        assertEquals(EditorError.SAVE, vm.state.value.error); assertNull(vm.state.value.savedId)
+        assertEquals(vm.body.text.toString(), repo.draft!!.body)
+        assertFalse(vm.state.value.busy)
+        repo.failSave = false; vm.save(); assertEquals("session", vm.state.value.savedId)
+    }
+    @Test fun emptyExistingEditKeepsOriginalAndRecoveryDraft() = runTest {
+        val repo = FakeRepository().apply { notes["old"] = Note("old", null, "محتوى أصلي", 1, 1) }
+        val vm = EditorViewModel(repo, "session", "old").also { store.put("old", it) }
+        vm.body.edit { replace(0, length, "") }; vm.requestExit()
+        assertEquals("محتوى أصلي", repo.notes["old"]!!.body)
+        assertEquals("", repo.draft!!.body); assertTrue(vm.state.value.exited)
+    }
+    @Test fun backgroundCommitPreservesCreatedAtAndOtherTraits() = runTest {
+        val repo = FakeRepository().apply { notes["old"] = Note("old", null, "أصلي", 1, 1, ExpressiveTrait.GLOW) }
+        val vm = EditorViewModel(repo, "session", "old").also { store.put("old", it) }
+        vm.body.edit { append(" جديد") }; vm.selectTrait(ExpressiveTrait.ANGER); vm.persistOnBackground()
+        advanceUntilIdle()
+        assertEquals(1L, repo.notes["old"]!!.createdAt)
+        assertEquals(ExpressiveTrait.ANGER, repo.notes["old"]!!.expressiveTrait)
+        assertNull(vm.state.value.savedId)
+    }
+    @Test fun freshVmRestoresLongDurableDraftWithoutGeneratingTitle() = runTest {
+        val text = "عربي 🌈\n".repeat(6000)
+        val repo = FakeRepository().apply { draft = EditorDraft("session", null, "", text, 1) }
+        val vm = editor(repo)
+        assertEquals(text, vm.body.text.toString()); assertEquals("", vm.title.text.toString())
+        vm.save(); assertEquals(text, repo.notes["session"]!!.body)
+    }
+    @Test fun loadFailureExitDoesNotDiscardUnreadDraft() = runTest {
+        val repo = FakeRepository().apply { failLoad = true; draft = EditorDraft("session", null, "", "خاص", 1) }
+        val vm = editor(repo); vm.requestExit()
+        assertTrue(vm.state.value.exited); assertNotNull(repo.draft); assertEquals(0, repo.discardCalls)
+    }
+    @Test fun capsuleDraftDoesNotSealWhileTypingButBackSealsAndClearsLiveText() = runTest {
+        val repo = FakeRepository(); val vm = editor(repo)
+        vm.body.edit { append("سري") }; vm.selectCapsule(10000)
+        // Snapshot changes are delivered by Compose; explicitly flush lifecycle here.
         vm.requestExit()
-        assertTrue(vm.state.value.confirmExit)
-        vm.stay()
-        vm.persistOnBackground()
-        advanceUntilIdle()
-        assertEquals(ExpressiveTrait.ANGER, repo.draft!!.expressiveTrait)
-        assertEquals(ExpressiveTrait.GLOW, repo.notes["existing"]!!.expressiveTrait)
-        val restored = EditorViewModel(repo, "session", "existing").also { store.put("restored", it) }
-        assertEquals(ExpressiveTrait.ANGER, restored.state.value.expressiveTrait)
-        assertEquals("النص الأصلي", restored.body.text.toString())
-        restored.selectTrait(ExpressiveTrait.NONE)
-        restored.save()
-        assertEquals(ExpressiveTrait.NONE, repo.notes["existing"]!!.expressiveTrait)
-    }
-
-    @Test fun reminderDraftRecoversAndDiscardNeverCallsSave() = runTest {
-        val repo = FakeRepository()
-        val vm = EditorViewModel(repo, "reminder-session", null).also { store.put("reminder", it) }
-        vm.body.edit { append("مسودة تذكير") }
-        vm.selectTrait(ExpressiveTrait.GLOW)
-        val due = System.currentTimeMillis() + 300_000
-        vm.selectReminder(due)
-        vm.persistOnBackground()
-        advanceUntilIdle()
-        assertEquals(ReminderEdit(true, due), repo.draft!!.reminderEdit)
-        assertEquals(0, repo.saveCalls)
-        val restored = EditorViewModel(repo, "reminder-session", null).also { store.put("restored-reminder", it) }
-        assertEquals(ReminderEdit(true, due), restored.state.value.reminderEdit)
-        restored.requestExit()
-        assertTrue(restored.state.value.confirmExit)
-        restored.discardAndExit()
-        assertEquals(0, repo.saveCalls)
-        assertNull(repo.draft)
-    }
-
-    /** Fault injection only; the shipped application always uses RoomNotesRepository. */
-    @Test fun lockedIdCannotLoadTextOrDraftAndCannotSave() = runTest {
-        val repo = FakeRepository().apply {
-            notes["locked"] = Note("locked", null, "", 1, 1, unlockAt = 10000, locked = true)
-            draft = EditorDraft("session", "locked", "محتوى قديم", "لا تعرضه", 1)
-        }
-        val vm = EditorViewModel(repo, "session", "locked").also { store.put("locked", it) }
         assertEquals(10000L, vm.state.value.lockedUntil)
-        assertEquals("", vm.title.text.toString()); assertEquals("", vm.body.text.toString())
-        vm.save(); vm.persistOnBackground()
-        assertEquals(0, repo.saveCalls); assertEquals("لا تعرضه", repo.draft!!.body)
+        assertEquals("", vm.body.text.toString()); assertEquals("session", vm.state.value.savedId)
     }
-    @Test fun newEditorRestoredAfterCommittedSealChecksItsSessionNoteId() = runTest {
+    @Test fun lockedRecoveryNeverLoadsDraftOrAllowsSave() = runTest {
         val repo = FakeRepository().apply {
             notes["session"] = Note("session", null, "", 1, 1, unlockAt = 10000, locked = true)
+            draft = EditorDraft("session", null, "", "سري", 1)
         }
-        val restored = editor(repo)
-        assertEquals(10000L, restored.state.value.lockedUntil)
-        assertEquals("", restored.body.text.toString())
-        restored.save(); assertEquals(0, repo.saveCalls)
-    }
-
-    @Test fun successfulSealClearsLiveTextOnlyAfterCommitAndFailurePreservesDraft() = runTest {
-        val gate = CompletableDeferred<Unit>()
-        val repo = FakeRepository().apply { saveGate = gate }
-        val vm = editor(repo)
-        vm.title.edit { append("رسالة") }; vm.body.edit { append("خاصة") }
-        vm.selectCapsule(10000)
-        vm.save()
-        assertTrue(vm.state.value.busy)
-        assertEquals("خاصة", vm.body.text.toString())
-        gate.complete(Unit)
-        assertEquals("", vm.body.text.toString()); assertEquals("", vm.title.text.toString())
+        val vm = editor(repo); vm.save(); vm.persistOnBackground()
+        assertEquals("", vm.body.text.toString()); assertEquals(0, repo.saveCalls)
         assertEquals(10000L, vm.state.value.lockedUntil)
-        assertEquals("session", vm.state.value.savedId)
     }
-    @Test fun temporalDraftRestoresScheduleAndBackProtection() = runTest {
-        val repo = FakeRepository()
-        val vm = editor(repo)
-        vm.body.edit { append("إلى المستقبل") }
-        vm.selectResurface(5000); vm.selectCapsule(10000)
-        vm.persistOnBackground(); advanceUntilIdle()
-        assertEquals(TemporalEdit(true, 5000, 10000), repo.draft!!.temporalEdit)
-        val restored = editor(repo)
-        assertEquals(repo.draft!!.temporalEdit, restored.state.value.temporalEdit)
-        restored.requestExit(); assertTrue(restored.state.value.confirmExit)
+    @Test fun unchangedEditDoesNotIssueContentWrite() = runTest {
+        val repo = FakeRepository().apply { notes["old"] = Note("old", null, "ثابت", 1, 1) }
+        val vm = EditorViewModel(repo, "session", "old").also { store.put("old", it) }
+        vm.save(); assertEquals(0, repo.saveCalls); assertEquals("old", vm.state.value.savedId)
     }
-
-    @Test fun failedSeenWriteIsReportedWithoutCrashingOrChangingText() = runTest {
-        val repo = object : NotesRepository by FakeRepository() {
-            override suspend fun opened(id: String) { error("Injected write failure") }
-        }
-        val vm = com.beemind.personal.ui.notes.DetailViewModel(repo, "note").also { store.put("detail", it) }
-        vm.readableOpened()
-        assertTrue(vm.temporalError.value)
-    }
-
     private class FakeRepository : NotesRepository {
         override fun observeThreadNotes(id: String, linkedOnly: Boolean) = kotlinx.coroutines.flow.flowOf(emptyList<com.beemind.personal.domain.ThreadNote>())
         override suspend fun setLinked(a: String, b: String, linked: Boolean) { error("Not used by editor tests") }

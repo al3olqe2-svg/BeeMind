@@ -34,7 +34,7 @@ object BeeDesign {
         Color(0xFFDCEB83), Color(0xFF65E5BF), Color(0xFF70BDFF), Color(0xFFC792FF), Color(0xFFFF719A)))
     val angerEdge = Brush.linearGradient(listOf(Color(0xFFB82C4E), Color(0xFFFF6E79), Color(0xFFE43F51), Color(0xFF9C2846)))
     val rainbow = Brush.linearGradient(spectrum)
-    val atmosphere = Brush.verticalGradient(listOf(Color(0xFF131827), background, background))
+    val atmosphere = Brush.verticalGradient(listOf(Color(0xFF21152F), background))
     // Script-aware merged OFL fonts; see tools/build_fonts.py and licenses/fonts.
     val writing = FontFamily(Font(R.font.beemind_regular), Font(R.font.beemind_bold, FontWeight.Bold))
     val latin = writing

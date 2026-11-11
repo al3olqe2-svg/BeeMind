@@ -143,7 +143,9 @@ class RoomNotesRepository(private val database: BeeMindDatabase, private val clo
             checkNotNull(getNote(saved.id))
         }
         // Room has committed. Android failures must never masquerade as a failed note save.
-        remindersChanged(if (reminderEdit.edited) previous else null)
+        // Text autosaves must not reconcile every alarm on every typing pause.
+        if (reminderEdit.edited || temporalEdit.sealUntil != null)
+            remindersChanged(if (reminderEdit.edited) previous else null)
         result
     }
 

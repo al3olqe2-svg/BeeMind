@@ -22,7 +22,7 @@ fun TemporalPicker(label: String, dueAt: Long?, enabled: Boolean, onSelect: (Lon
     var open by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { open = true }, enabled = enabled,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(label) }
-    if (open) ReminderSheet(dueAt, { open = false }, { onSelect(it); open = false }, label, isDraft)
+    if (open) ReminderSheet(dueAt, { open = false }, { if (it != dueAt) onSelect(it); open = false }, label, isDraft)
 }
 
 /** No original note content is accepted by this component, including semantics. */
@@ -43,9 +43,7 @@ fun CapsuleCover(unlockAt: Long, modifier: Modifier = Modifier) {
             Icon(Icons.Default.Lock, contentDescription = null, tint = BeeDesign.accent, modifier = Modifier.size(27.dp))
         }
         Text("كبسولة مغلقة", style = MaterialTheme.typography.labelLarge, color = BeeDesign.accent)
-        Text("رسالة إلى المستقبل", style = MaterialTheme.typography.titleMedium)
         Text("تُفتح في ${reminderTimestamp(unlockAt)}", style = MaterialTheme.typography.bodySmall)
-        Text("المحتوى مخفي حتى موعده", style = MaterialTheme.typography.bodySmall, color = BeeDesign.secondary)
     }
 }
 

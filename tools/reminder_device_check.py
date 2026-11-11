@@ -13,7 +13,19 @@ OUT.mkdir(parents=True, exist_ok=True)
 PACKAGE = 'com.beemind.personal'
 
 def adb(*args):
-    return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT)
+    # An Android shell command must not consume the whole CI job if adbd/AMS stalls.
+    timeout = 180 if 'instrument' in args else 45
+    try:
+        return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.STDOUT, timeout=timeout)
+    except subprocess.CalledProcessError as failure:
+        print(failure.output, flush=True)
+        raise
+
+def evidence(name, *args):
+    try:
+        (OUT / name).write_text(adb(*args))
+    except (subprocess.SubprocessError, OSError) as error:
+        (OUT / name).write_text(str(error))
 
 def snapshot():
     # Read private synthetic Room/WAL after each short phase without opening BeeMind.
@@ -23,7 +35,7 @@ def snapshot():
         if path.exists():
             path.unlink()
     for name in ['beemind.db', 'beemind.db-wal']:
-        result = subprocess.run(['adb', 'exec-out', 'run-as', PACKAGE, 'cat', 'databases/' + name], capture_output=True)
+        result = subprocess.run(['adb', 'exec-out', 'run-as', PACKAGE, 'cat', 'databases/' + name], capture_output=True, timeout=45)
         path = OUT / name
         if result.returncode == 0:
             path.write_bytes(result.stdout)
@@ -37,7 +49,7 @@ def kill_cached():
     adb('shell', 'input', 'keyevent', 'KEYCODE_HOME')
     adb('shell', 'am', 'kill', PACKAGE)  # deliberately NOT force-stop
     time.sleep(2)
-    result = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
+    result = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True, timeout=45)
     if result.stdout.strip():
         # am kill can decline while the recently hidden Activity still has foreground
         # importance. Kill only this debuggable fixture UID; do not mark package stopped.
@@ -45,7 +57,7 @@ def kill_cached():
         assert pid.isdigit()
         adb('shell', 'kill', '-9', pid)
         time.sleep(2)
-        check = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
+        check = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True, timeout=45)
         assert not check.stdout.strip(), 'Target process did not die: ' + check.stdout
     print('Confirmed: no BeeMind process or Activity', flush=True)
 
@@ -79,7 +91,11 @@ def tap_notification_action(text):
             buttons = [child for row in rows for child in row.iter('node')
                        if child.get('resource-id', '').endswith('/expand_button')
                        and child.get('content-desc') == 'Expand']
-            assert buttons, 'No BeeMind notification action or collapsed BeeMind row'
+            if not buttons:
+                # A wake-up/first SystemUI frame can ignore the initial expansion.
+                # Poll the actual shade; never synthesize the PendingIntent action.
+                adb('shell', 'cmd', 'statusbar', 'expand-notifications')
+                continue
             node = buttons[0]
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', node.attrib['bounds']))
         adb('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
@@ -91,6 +107,8 @@ assert adb('shell', 'getprop', 'ro.kernel.qemu').strip() == '1', 'Emulator requi
 print(adb('root'), flush=True)
 adb('wait-for-device')
 assert adb('shell', 'id', '-u').strip() == '0', 'Rootable Google APIs emulator required'
+live_log = None
+live_log_file = None
 try:
     sdk = int(adb('shell', 'getprop', 'ro.build.version.sdk').strip())
     if sdk >= 33:
@@ -98,6 +116,8 @@ try:
     if sdk >= 31:
         adb('shell', 'appops', 'set', PACKAGE, 'SCHEDULE_EXACT_ALARM', 'allow')
     adb('logcat', '-c')
+    live_log_file = (OUT / 'live-logcat.txt').open('w', encoding='utf-8')
+    live_log = subprocess.Popen(['adb', 'logcat', '-v', 'threadtime'], stdout=live_log_file, stderr=subprocess.STDOUT)
     seed = adb('shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
                PACKAGE + '.ReminderDeviceFixture#seed',
                PACKAGE + '.test/androidx.test.runner.AndroidJUnitRunner')
@@ -106,7 +126,9 @@ try:
     assert 'OK (1 test)' in seed
     # Android finishes instrumentation by force-stopping the target. Explicitly open ONCE
     # to restore its alarms; never restart instrumentation during delivery verification.
+    print('Opening Activity for initial scheduling', flush=True)
     adb('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity')
+    print('Checking persisted alarm scheduling', flush=True)
     wait_for(lambda: all(r['scheduling'] == 'EXACT' for r in snapshot().values()), 15, 'initial scheduling')
     initial = snapshot()
     assert len(initial) == 2 and all(r['delivery'] == 'PENDING' for r in initial.values())
@@ -142,8 +164,18 @@ try:
         assert db.execute("SELECT count(*) FROM notes WHERE expressiveTrait = 'GLOW'").fetchone()[0] == 2
     print('PASS: native cold delivery, actual ten-minute snooze in Doze, notes retained', flush=True)
 finally:
-    (OUT / 'logcat.txt').write_text(adb('logcat', '-d'))
-    (OUT / 'alarms.txt').write_text(adb('shell', 'dumpsys', 'alarm'))
-    (OUT / 'notifications.txt').write_text(adb('shell', 'dumpsys', 'notification', '--noredact'))
-    adb('shell', 'dumpsys', 'deviceidle', 'unforce')
-    adb('shell', 'dumpsys', 'battery', 'reset')
+    evidence('logcat.txt', 'logcat', '-d')
+    evidence('alarms.txt', 'shell', 'dumpsys', 'alarm')
+    evidence('notifications.txt', 'shell', 'dumpsys', 'notification', '--noredact')
+    evidence('activities.txt', 'shell', 'dumpsys', 'activity', 'activities')
+    evidence('idle-cleanup.txt', 'shell', 'dumpsys', 'deviceidle', 'unforce')
+    evidence('battery-cleanup.txt', 'shell', 'dumpsys', 'battery', 'reset')
+    if live_log is not None:
+        live_log.terminate()
+        try:
+            live_log.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            live_log.kill()
+            live_log.wait(timeout=5)
+    if live_log_file is not None:
+        live_log_file.close()

@@ -1,5 +1,11 @@
 package com.beemind.personal.ui.components
 
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import android.Manifest
 import android.content.Intent
 import androidx.core.net.toUri
@@ -14,10 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -28,11 +31,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.*
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
-fun reminderTimestamp(at: Long): String = DateTimeFormatter.ofPattern("EEE، d MMM yyyy • HH:mm:ss z", Locale.forLanguageTag("ar"))
-    .format(Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()))
+fun reminderTimestamp(at: Long): String = com.beemind.personal.ui.notes.formatNoteTimestamp(at)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +43,7 @@ fun ReminderPicker(edit: ReminderEdit, saved: Reminder?, enabled: Boolean, onSel
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
         Text(if (due == null) "＋ تذكير" else "◷ تذكير مفعّل")
     }
-    if (open) ReminderSheet(due, onDismiss = { open = false }, onSelect = { onSelect(it); open = false })
+    if (open) ReminderSheet(due, onDismiss = { open = false }, onSelect = { if (it != due) onSelect(it); open = false })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +51,7 @@ fun ReminderPicker(edit: ReminderEdit, saved: Reminder?, enabled: Boolean, onSel
 fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Unit, temporalLabel: String? = null, isDraft: Boolean = true) {
     val zone = ZoneId.systemDefault()
     var reference by remember { mutableStateOf(Instant.now()) }
-    var minutes by remember { mutableStateOf("5") }
+    var minutes by remember { mutableIntStateOf(0) }
     var due by remember { mutableStateOf(initial) }
     var date by remember { mutableStateOf(initial?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: LocalDate.now(zone)) }
     var time by remember { mutableStateOf(initial?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() } ?: LocalTime.now(zone).withSecond(0).withNano(0)) }
@@ -60,13 +60,14 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
     var timeOpen by remember { mutableStateOf(false) }
     val app = LocalContext.current.applicationContext as BeeMindApplication
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    fun relative(value: String, reset: Boolean) {
-        minutes = value
-        if (reset) reference = Instant.now()
-        due = runCatching { ReminderTimes.relative(reference, value.toLong()) }.getOrNull()
-        error = if (due == null) "أدخل مدة بين دقيقة و525600 دقيقة." else null
+    fun relative() {
+        if (minutes == 0) reference = Instant.now()
+        minutes = (minutes + 5).coerceAtMost(525600)
+        due = ReminderTimes.relative(reference, minutes.toLong())
+        error = null
     }
     fun local() {
+        minutes = 0
         due = runCatching { ReminderTimes.local(LocalDateTime.of(date, time), zone, Instant.now()) }.getOrNull()
         error = if (due == null) "الوقت ماضٍ، أو غير موجود/ملتبس بسبب التوقيت الصيفي. اختر وقتًا آخر." else null
     }
@@ -74,29 +75,24 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(temporalLabel ?: "Reminder — موعد لفكرتك", style = MaterialTheme.typography.titleLarge)
-            Text(if (isDraft) "الإعداد جزء من المسودة. لا يسري إلا بعد حفظ الملاحظة." else "يُحفظ الموعد مباشرة دون فتح محتوى الكبسولة.", style = MaterialTheme.typography.bodySmall)
-            Text("بعد مدة", style = MaterialTheme.typography.titleSmall)
-            Text("تُحسب المدة من لحظة اختيارها. زر +5 يمدد الموعد نفسه.", style = MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                (if (temporalLabel == null) listOf(5, 10, 30) else listOf(2, 10, 30)).forEach { n ->
-                    OutlinedButton(onClick = { relative(n.toString(), true) }, modifier = Modifier.weight(1f)) { Text("$n د") }
+            Text(temporalLabel ?: "التذكير", style = MaterialTheme.typography.titleLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = ::relative) { Text("+5", style = MaterialTheme.typography.labelLarge.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr)) }
+                if (minutes > 0) Text("$minutes د", modifier = Modifier.padding(vertical = 12.dp))
+                IconButton(onClick = { dateOpen = true }) {
+                    Icon(androidx.compose.material.icons.Icons.Default.DateRange, "اختيار التاريخ")
+                }
+                IconButton(onClick = { timeOpen = true }, modifier = Modifier.semantics { contentDescription = "اختيار الوقت" }) {
+                    val color = MaterialTheme.colorScheme.onSurface
+                    Canvas(Modifier.size(24.dp)) {
+                        drawCircle(color, radius = size.minDimension * .4f, style = Stroke(2.dp.toPx()))
+                        drawLine(color, center, Offset(center.x, size.height * .25f), 2.dp.toPx())
+                        drawLine(color, center, Offset(size.width * .7f, size.height * .6f), 2.dp.toPx())
+                    }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = minutes, onValueChange = { relative(it, true) }, label = { Text("دقائق أخرى") },
-                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-                OutlinedButton(onClick = { relative(((minutes.toLongOrNull() ?: 0).coerceAtMost(525600) + 5).toString(), false) },
-                    modifier = Modifier.heightIn(min = 56.dp)) { Text("+5 دقائق") }
-            }
-            Text("أو تاريخ ووقت محليان", style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { date = LocalDate.now(zone); local() }) { Text("اليوم") }
-                TextButton(onClick = { date = LocalDate.now(zone).plusDays(1); local() }) { Text("غدًا") }
-            }
-            OutlinedButton(onClick = { dateOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("التاريخ: $date") }
-            OutlinedButton(onClick = { timeOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("الوقت: ${time.format(DateTimeFormatter.ofPattern("HH:mm"))}") }
-            Text(due?.let { "الموعد النهائي: ${reminderTimestamp(it)}" } ?: "اختر موعدًا مستقبليًا", color = MaterialTheme.colorScheme.primary)
+            due?.let { Text(reminderTimestamp(it), color = MaterialTheme.colorScheme.primary) }
+            if (temporalLabel?.contains("كبسولة") == true) Text("سيُحجب النص حتى الموعد، ولا يمكن إلغاء القفل.", style = MaterialTheme.typography.bodySmall)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (temporalLabel == null) ReminderPermissions()
             Button(onClick = {
@@ -106,8 +102,8 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
                     if (temporalLabel == null && Build.VERSION.SDK_INT >= 33 && !app.reminderNotifier.allowed()) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     onSelect(due)
                 }
-            }, enabled = due != null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(if (isDraft) "اعتماد الموعد في المسودة" else "حفظ الموعد") }
-            if (initial != null) TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text(if (!isDraft) "إلغاء هذا الموعد" else if (temporalLabel == null) "إزالة التذكير عند حفظ الملاحظة" else "إلغاء هذه السمة في المسودة") }
+            }, enabled = due != null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("اعتماد") }
+            if (initial != null) TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("إلغاء الموعد") }
         }
     }
     if (dateOpen) {
@@ -118,7 +114,11 @@ fun ReminderSheet(initial: Long?, onDismiss: () -> Unit, onSelect: (Long?) -> Un
                 dateOpen = false
             }) { Text("اختيار") }
         }, dismissButton = { TextButton(onClick = { dateOpen = false }) { Text("إلغاء") } }) {
-            DatePicker(state, modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()))
+            DatePicker(state, title = null, headline = {
+                state.selectedDateMillis?.let {
+                    Text(com.beemind.personal.ui.notes.formatNoteDate(it, ZoneOffset.UTC), modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+                }
+            }, modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()))
         }
     }
     if (timeOpen) {
@@ -178,10 +178,6 @@ fun ReminderPermissions() {
 fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit, locked: Boolean = false) {
     if (reminder == null || reminder.status == "CANCELLED") return
     val app = LocalContext.current.applicationContext as BeeMindApplication
-    val traceKey = com.beemind.personal.notifications.ReminderDiagnostics.key(reminder.noteId)
-    val traceFlow = remember(app, traceKey) { app.database.foundationDao().observeValue(traceKey) }
-    val traceValue by traceFlow.collectAsStateWithLifecycle(initialValue = null)
-    val trace = traceValue?.split('|')?.takeIf { it.size == 3 && it[0] == reminder.generation }
     val scope = app.reminderScope
     var editLocked by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -198,7 +194,7 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit, locked: Boolean = f
     if (editLocked) ReminderSheet(reminder.dueAt, { editLocked = false }, { due ->
         editLocked = false
         scope.launch {
-            try { app.notesRepository.scheduleReminder(reminder.noteId, due) }
+            try { if (due != reminder.dueAt) app.notesRepository.scheduleReminder(reminder.noteId, due) }
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) { withContext(Dispatchers.Main) { error = true } }
         }
@@ -206,31 +202,10 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit, locked: Boolean = f
     val editAction = { if (locked) editLocked = true else onEdit() }
     Surface(shape = BeeDesign.card, color = BeeDesign.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("◷ Reminder — التذكير", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             Text(reminderTimestamp(reminder.dueAt), style = MaterialTheme.typography.bodyMedium)
-            val status = when {
-                reminder.status == "DONE" -> "تم إنجازه"
-                reminder.delivery == "BLOCKED" -> "مستحق • تعذر عرض الإشعار بسبب الأذونات"
-                reminder.delivery == "MISSED" -> "فات موعده • راجعه أو أجّله"
-                reminder.delivery == "FAILED" -> "تعذر عرض الإشعار • ستُعاد المحاولة عند الاستعادة"
-                reminder.delivery == "DELIVERED" -> "مستحق • أُرسل الإشعار"
-                reminder.scheduling == "FAILED" -> "فشلت الجدولة • ستُعاد المحاولة عند فتح التطبيق"
-                reminder.scheduling == "PENDING" && reminder.dueAt > System.currentTimeMillis() -> "محفوظ • بانتظار تأكيد الجدولة؛ أعد فتح التطبيق للمحاولة"
-                reminder.status == "SNOOZED" -> "مؤجل عشر دقائق"
-                reminder.dueAt <= System.currentTimeMillis() -> "مستحق • بانتظار التسليم"
-                else -> "مجدول"
-            }
-            Text(status, style = MaterialTheme.typography.bodySmall)
-            when (trace?.get(1)) {
-                "RECOVERY_DELIVERED" -> Text("وصل متأخرًا عند الاستعادة؛ وصول إنذار الخلفية لم يُؤكد لهذا الموعد.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                "ALARM_DELIVERED" -> Text("تم التسليم عبر إنذار Android.", style = MaterialTheme.typography.bodySmall)
-                "ALARM_RECEIVED" -> Text("استُلم إنذار Android؛ لم يتأكد اكتمال التسليم بعد.", style = MaterialTheme.typography.bodySmall)
-                "SNOOZE_EXACT" -> Text("أعاد التأجيل جدولة إنذار دقيق لدى Android.", style = MaterialTheme.typography.bodySmall)
-                "SNOOZE_INEXACT" -> Text("أعاد التأجيل جدولة إنذار تقريبي قد يتأخر.", style = MaterialTheme.typography.bodySmall)
-            }
-            if (reminder.active && reminder.scheduling == "INEXACT" && reminder.dueAt > System.currentTimeMillis())
-                Text("الجدولة الحالية تقريبية وقد يتأخر التنبيه.", style = MaterialTheme.typography.bodySmall)
+            if (reminder.status == "DONE") Text("تم إنجازه", style = MaterialTheme.typography.bodySmall)
+            if (reminder.scheduling == "FAILED" || reminder.delivery in setOf("FAILED", "BLOCKED", "MISSED"))
+                Text("تعذر تسليم التذكير في موعده؛ راجع الأذونات أو عدّل الموعد.", color = MaterialTheme.colorScheme.error)
             if (reminder.active) {
                 ReminderPermissions()
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

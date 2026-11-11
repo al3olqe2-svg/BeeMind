@@ -132,10 +132,9 @@ fun BeeMindApp() {
                     scope.launch {
                         entry.lifecycle.withResumed {
                             if (nav.currentBackStackEntry === entry) {
-                                nav.navigate("note/$savedId") { popUpTo("home"); launchSingleTop = true }
+                                nav.popBackStack("home", inclusive = false)
                             }
                         }
-                        snackbar.showSnackbar(context.getString(R.string.note_saved))
                     }
                 })
             }
