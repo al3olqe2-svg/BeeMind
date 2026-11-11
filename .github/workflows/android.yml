@@ -154,10 +154,10 @@ jobs:
           target: google_apis
           disable-animations: true
           ram-size: 2048M
-          # 37.2.13 segfaults in the host RenderThread on API 34 composition.
-          # Official stable 35.6.11 keeps the same Android images and all assertions.
-          emulator-build: ${{ matrix.api == 34 && '13610412' || '16740729' }}
-          emulator-options: -no-window -gpu ${{ matrix.api == 34 && 'guest' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none
+          # SwiftShader's host RenderThread segfaults on API 34 composition.
+          # Use the supported Mesa software backend, preserving images and assertions.
+          emulator-build: 16740729
+          emulator-options: -no-window -gpu ${{ matrix.api == 34 && 'lavapipe' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none
           script: bash tools/run_device_checks.sh
       - name: Capture emulator host resources
         if: always()
