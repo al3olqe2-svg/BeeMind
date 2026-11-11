@@ -74,7 +74,7 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
 }
 
 @Composable
-private fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
+internal fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val illumination by animateFloatAsState(if (pressed) 1f else 0f,

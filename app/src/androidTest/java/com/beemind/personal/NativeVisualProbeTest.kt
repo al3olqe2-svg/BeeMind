@@ -22,6 +22,9 @@ import com.beemind.personal.domain.ExpressiveTrait
 import com.beemind.personal.domain.NoteSummary
 import com.beemind.personal.ui.components.NeonAdd
 import com.beemind.personal.ui.components.RainbowLine
+import com.beemind.personal.ui.notes.NoteCard
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import com.beemind.personal.ui.notes.HomeScreen
 import com.beemind.personal.ui.notes.HomeState
 import com.beemind.personal.ui.theme.BeeMindTheme
@@ -55,6 +58,10 @@ class NativeVisualProbeTest {
                         }
                         "rainbow" -> RainbowLine()
                         "fab" -> NeonAdd { }
+                        "card" -> NoteCard(NoteSummary("visual-a", null, "ملاحظة تجريبية Synthetic note", 1, 1), 0) {}
+                        "grid" -> LazyVerticalStaggeredGrid(columns = StaggeredGridCells.Fixed(1), modifier = Modifier.fillMaxSize()) {
+                            item { Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium) }
+                        }
                         "text" -> Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium)
                         "home-empty", "home-plain", "home-glow", "home" -> {
                             val now = System.currentTimeMillis()

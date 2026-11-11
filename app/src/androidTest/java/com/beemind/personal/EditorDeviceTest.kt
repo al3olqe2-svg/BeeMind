@@ -2,6 +2,7 @@ package com.beemind.personal
 
 import android.content.Context
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -25,12 +26,20 @@ class EditorDeviceTest {
         context.deleteDatabase(name)
         var db = Room.databaseBuilder(context, BeeMindDatabase::class.java, name).build()
         val stores = mutableListOf<ViewModelStore>()
+        val editorJobs = mutableListOf<Job>()
         fun main(block: () -> Unit) = InstrumentationRegistry.getInstrumentation().runOnMainSync(block)
         suspend fun await(condition: () -> Boolean) { withTimeout(10000) { while (!condition()) delay(20) } }
+        suspend fun clearEditors() {
+            main { stores.forEach { it.clear() }; stores.clear() }
+            // A completed navigation state can precede the final mutex release.
+            // Await cancellation and NonCancellable Room work before closing/reopening.
+            editorJobs.forEach { it.join() }
+            editorJobs.clear()
+        }
         try {
             var repo = RoomNotesRepository(db)
             lateinit var vm: EditorViewModel
-            main { vm = EditorViewModel(repo, "session", null); ViewModelStore().also { stores += it; it.put("vm", vm) } }
+            main { vm = EditorViewModel(repo, "session", null); ViewModelStore().also { stores += it; it.put("vm", vm) }; editorJobs += checkNotNull(vm.viewModelScope.coroutineContext[Job]) }
             await { !vm.state.value.loading }
             main { vm.body.edit { append("بداية 🌈") }; androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications() }
             withTimeout(10000) { while (repo.getNote("session") == null) delay(20) }
@@ -47,7 +56,7 @@ class EditorDeviceTest {
             repo.scheduleResurface("session", due)
             val reminder = db.reminderDao().get("session")!!
             lateinit var editing: EditorViewModel
-            main { editing = EditorViewModel(repo, "editing", "session"); ViewModelStore().also { stores += it; it.put("vm", editing) } }
+            main { editing = EditorViewModel(repo, "editing", "session"); ViewModelStore().also { stores += it; it.put("vm", editing) }; editorJobs += checkNotNull(editing.viewModelScope.coroutineContext[Job]) }
             await { !editing.state.value.loading }
             main { editing.body.edit { replace(0, length, "آخر تعديل محفوظ") }; editing.selectTrait(ExpressiveTrait.GLOW); editing.requestExit() }
             await { editing.state.value.exited }
@@ -55,7 +64,7 @@ class EditorDeviceTest {
             assertEquals(reminder, db.reminderDao().get("session"))
             assertEquals(due, repo.getNote("session")!!.resurfaceAt)
             assertEquals(1, repo.observeThreadNotes("session", true).first().size)
-            main { stores.forEach { it.clear() }; stores.clear() }
+            clearEditors()
             db.close()
             db = Room.databaseBuilder(context, BeeMindDatabase::class.java, name).build()
             repo = RoomNotesRepository(db)
@@ -63,6 +72,6 @@ class EditorDeviceTest {
             assertEquals("آخر تعديل محفوظ", reopened.body); assertEquals(ExpressiveTrait.GLOW, reopened.expressiveTrait)
             assertEquals(original.createdAt, reopened.createdAt); assertEquals(1, repo.observeThreadNotes("linked", true).first().size)
             db.openHelper.writableDatabase.query("PRAGMA integrity_check").use { assertTrue(it.moveToFirst()); assertEquals("ok", it.getString(0)) }
-        } finally { main { stores.forEach { it.clear() } }; db.close(); context.deleteDatabase(name) }
+        } finally { clearEditors(); db.close(); context.deleteDatabase(name) }
     }
 }
