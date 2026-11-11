@@ -194,7 +194,7 @@ fun ReminderDetails(reminder: Reminder?, onEdit: () -> Unit, locked: Boolean = f
     if (editLocked) ReminderSheet(reminder.dueAt, { editLocked = false }, { due ->
         editLocked = false
         scope.launch {
-            try { app.notesRepository.scheduleReminder(reminder.noteId, due) }
+            try { if (due != reminder.dueAt) app.notesRepository.scheduleReminder(reminder.noteId, due) }
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) { withContext(Dispatchers.Main) { error = true } }
         }
