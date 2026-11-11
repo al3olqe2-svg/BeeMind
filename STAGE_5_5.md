@@ -7,6 +7,7 @@ owner phone acceptance. No Stage 6 changes.
 ## UI and storage contracts
 - Home: static layered continuous rainbow light, responsive existing masonry, a 64dp
   circular neon + with an accessible Arabic label and its own bottom layout space.
+  The add control is present from the first frame, disabled until recovery data loads.
   No title, welcome text, counters, metadata or empty-state marketing.
 - Editor: one body field; titles are neither requested nor generated. Legacy titles
   remain private data, unchanged. Quiet Save and Back, one traits sheet; full Reminder

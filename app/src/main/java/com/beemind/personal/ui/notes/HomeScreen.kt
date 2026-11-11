@@ -63,11 +63,11 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
                 }
             }
         }
-        if (state is HomeState.Ready) {
-            Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
-                NeonAdd(onClick = { state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate() })
-            }
+        Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
+            NeonAdd(enabled = state is HomeState.Ready, onClick = {
+                if (state is HomeState.Ready) state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate()
+            })
         }
     }
 

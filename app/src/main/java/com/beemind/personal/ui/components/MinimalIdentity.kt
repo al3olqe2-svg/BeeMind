@@ -13,6 +13,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.unit.dp
 import com.beemind.personal.ui.theme.BeeDesign
 
@@ -29,7 +31,7 @@ fun RainbowLine() {
 }
 
 @Composable
-fun NeonAdd(onClick: () -> Unit) {
+fun NeonAdd(enabled: Boolean = true, onClick: () -> Unit) {
     Box(Modifier.padding(8.dp).size(64.dp).drawWithCache {
         val radius = size.minDimension * .85f
         val center = Offset(size.width / 2f, size.height / 2f)
@@ -37,9 +39,10 @@ fun NeonAdd(onClick: () -> Unit) {
             listOf(Color(0xFFB475FF).copy(alpha = .45f), Color.Transparent), center, radius) else null
         onDrawBehind { if (halo != null) drawCircle(halo, radius = radius, center = center) }
     }) {
-        FloatingActionButton(onClick = onClick, shape = CircleShape,
+        FloatingActionButton(onClick = { if (enabled) onClick() }, shape = CircleShape,
             containerColor = Color(0xFF9664EA), contentColor = BeeDesign.ink,
-            modifier = Modifier.fillMaxSize().testTag("new_note")) {
+            modifier = Modifier.fillMaxSize().testTag(if (enabled) "new_note" else "new_note_loading")
+                .semantics { if (!enabled) disabled() }) {
             Icon(Icons.Default.Add, "إضافة ملاحظة", Modifier.size(30.dp))
         }
     }
