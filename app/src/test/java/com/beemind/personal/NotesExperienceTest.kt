@@ -294,7 +294,7 @@ class NotesExperienceTest {
         waitForTag("note_short"); waitForTag("note_long")
         val short = compose.onNodeWithTag("note_short").fetchSemanticsNode().boundsInRoot
         val long = compose.onNodeWithTag("note_long").fetchSemanticsNode().boundsInRoot
-        assertTrue(long.height > short.height); assertTrue(short.left != long.left)
+        assertEquals(com.beemind.personal.ui.notes.homeCardSize("long").heightDp.toFloat() / com.beemind.personal.ui.notes.homeCardSize("short").heightDp, long.height / short.height, .02f); assertTrue(short.left != long.left)
         compose.onAllNodesWithText("عنوان داخلي").assertCountEquals(0)
         screenshot("home-masonry")
         openNote("short"); compose.onAllNodesWithText("عنوان داخلي").assertCountEquals(0)

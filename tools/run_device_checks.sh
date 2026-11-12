@@ -12,8 +12,8 @@ else
   done
   mkdir -p app/build/reports/ui-device
   for scene in fallback sea bright dark portrait detail; do
-    adb exec-out run-as com.beemind.personal cat "files/r1-native-$scene.png" > "app/build/reports/ui-device/r1-$scene.png"
-    test -s "app/build/reports/ui-device/r1-$scene.png"
+    adb exec-out run-as com.beemind.personal cat "files/r2-native-$scene.png" > "app/build/reports/ui-device/r2-$scene.png"
+    test -s "app/build/reports/ui-device/r2-$scene.png"
   done
   python3 tools/reminder_device_check.py
   python3 tools/ui_device_probe.py
