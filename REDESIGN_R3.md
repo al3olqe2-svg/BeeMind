@@ -115,3 +115,23 @@ smoothness still require owner acceptance. No local /dev/kvm is available; nativ
 Android verification runs in GitHub Actions. Temporary debug signing remains
 non-upgrade-guaranteed unless certificate compatibility is established; do not remove
 an installed data-bearing copy. R4 reading/threads visual work and Stage 6 are deferred.
+
+### Executed local verification — 12 November 2026
+JDK 17.0.21 / Android SDK 35:
+`./gradlew --no-daemon --max-workers=2 :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`
+passed after the final visual/resource changes. **130 tests, zero failures/errors/skips;
+lint: no issues.** The original 123 test executions remain, with seven R3 additions.
+The two obsolete Save label resources were removed rather than suppressing unused-resource lint.
+
+Opened and reviewed actual JVM-rendered PNGs: empty Normal, Arabic Normal, all four
+primary tools, all three expressive choices, final Glow and strengthened Anger,
+pending Reminder, calendar, 24-hour time input, capsule confirmation, 320dp/1.5x
+writing and a rejected past appointment. This review fixed physical-left alignment
+of the dock when a wider panel opens, forced LTR +5 glyph order, softened Normal's
+swatch and strengthened Anger's crimson field. This is not physical-device acceptance.
+
+Draft PR: https://github.com/al3olqe2-svg/BeeMind/pull/8. Native API 29/34, notification
+regressions and the final CI artifact/run evidence are recorded in that PR and the
+delivery report after the matching run completes. Unconfirmed UI proposals are
+intentionally ephemeral on composition/Activity replacement; durable note text,
+confirmed metadata and recovery drafts retain the existing ViewModel/Room behavior.
