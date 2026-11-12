@@ -29,7 +29,7 @@ class WallpaperImages {
         val boundedEdge = if (frost) 720 else edge.coerceIn(720, maximumEdge)
         val key = key(file.name, blur, ratio, boundedEdge, frost)
         cache.get(key)?.let { return@withLock it }
-        val source = decode(file, if (blur == null) 1440 else minOf(boundedEdge * 2, 2048)) ?: return@withLock null
+        val source = decode(file, if (blur == null) 1440 else minOf(boundedEdge * 2, if (maximumEdge == 1080) 1440 else 2048)) ?: return@withLock null
         val width = if (blur == null) 640 else if (ratio < 1) (boundedEdge * ratio).toInt() else boundedEdge
         val height = if (blur == null) 280 else if (ratio < 1) boundedEdge else (boundedEdge / ratio).toInt()
         val result = createBitmap(width, height)

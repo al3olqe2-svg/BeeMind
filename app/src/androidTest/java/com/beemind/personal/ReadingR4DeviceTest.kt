@@ -87,6 +87,12 @@ class ReadingR4DeviceTest {
                 assertTrue("Selected visible text must reach Android Copy", copied.isNotBlank() && long.contains(copied))
             }
             compose.onNodeWithTag("reading_chunk_0").performTouchInput { click(word) }
+            // Keep screenshots about reading; Android 13's clipboard preview is a separate
+            // system window and can otherwise cover the final linked card for several seconds.
+            automation.windows.mapNotNull { it.root }.flatMap {
+                it.findAccessibilityNodeInfosByViewId("com.android.systemui:id/dismiss_button")
+            }.firstOrNull()?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+            automation.waitForIdle(100, 3000)
             val actions = compose.onNodeWithTag("reading_actions").fetchSemanticsNode().boundsInRoot
             compose.onNodeWithTag("reading_list").performScrollToNode(hasTestTag("inline_thread_locked"))
             capture("inline-two")
@@ -100,7 +106,14 @@ class ReadingR4DeviceTest {
             compose.onAllNodesWithTag("inline_thread_glow").assertCountEquals(0)
             for (target in listOf("glow","anger","locked")) {
                 compose.runOnIdle { id=target }
-                compose.waitUntil(15000) { compose.onAllNodesWithTag("reading_more").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(15000) {
+                    if (target == "locked") compose.onAllNodesWithText("كبسولة مغلقة").fetchSemanticsNodes().isNotEmpty() &&
+                        compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isEmpty()
+                    else {
+                        val expected = if (target == "glow") "ضوء الصباح\n\nصفحة جديدة." else "أكتب كي أمضي.\nA quiet page."
+                        compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText(expected)).fetchSemanticsNodes().isNotEmpty()
+                    }
+                }
                 capture("reading-$target")
             }
             compose.onAllNodesWithContentDescription("تعديل الملاحظة").assertCountEquals(0)

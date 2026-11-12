@@ -63,7 +63,7 @@ lighter and introduce no diffusion. Stored original bytes remain unchanged.
 
 Output follows viewport pixels within 720–1920px long-edge bounds; small-heap devices
 cap at 1080px. Sources are dimension-checked and power-of-two sampled to at most
-2048px, with EXIF orientation and centered crop preserved. Thumbnails remain 640×280.
+2048px (1440px for the small-heap path), with EXIF orientation and centered crop preserved. Thumbnails remain 640×280.
 Processing is serialized on IO, keyed/cached, with 120ms preview debounce and previous
 frame retained while replacements arrive. Save occurs on slider gesture completion.
 
