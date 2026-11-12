@@ -1,37 +1,49 @@
 package com.beemind.personal.ui.theme
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.*
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Shapes
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 
-private val Colors = darkColorScheme(
-    primary = BeeDesign.accent, onPrimary = BeeDesign.background,
-    primaryContainer = Color(0xFF2A2941), onPrimaryContainer = BeeDesign.ink,
-    background = BeeDesign.background, onBackground = BeeDesign.ink,
-    surface = BeeDesign.background, onSurface = BeeDesign.ink,
-    surfaceVariant = BeeDesign.surface, onSurfaceVariant = BeeDesign.secondary,
-    surfaceDim = BeeDesign.background, surfaceBright = Color(0xFF303748),
-    surfaceContainerLowest = Color(0xFF080B12), surfaceContainerLow = Color(0xFF121721),
-    surfaceContainer = BeeDesign.surface, surfaceContainerHigh = Color(0xFF202634),
-    surfaceContainerHighest = Color(0xFF293141), inverseSurface = BeeDesign.ink,
-    inverseOnSurface = BeeDesign.background, inversePrimary = Color(0xFF51407B),
-    outline = Color(0xFF818CA2), outlineVariant = BeeDesign.border,
-    error = Color(0xFFFFA5AD), errorContainer = Color(0xFF40232D), onErrorContainer = Color(0xFFFFDADF),
+private val EditorialColors = lightColorScheme(
+    primary = BeeDesign.control, onPrimary = BeeDesign.onControl,
+    primaryContainer = Color(0xFFE7DFF0), onPrimaryContainer = Color(0xFF322240),
+    background = BeeDesign.editorialBackground, onBackground = BeeDesign.editorialForeground,
+    surface = BeeDesign.editorialBackground, onSurface = BeeDesign.editorialForeground,
+    surfaceVariant = Color(0xFFE7E9EE), onSurfaceVariant = BeeDesign.secondaryText,
+    surfaceContainerLowest = BeeDesign.editorialSurface, surfaceContainerLow = Color(0xFFF6F6F8),
+    surfaceContainer = Color(0xFFEDEEF2), surfaceContainerHigh = Color(0xFFE7E9EE),
+    surfaceContainerHighest = Color(0xFFE1E3EA),
+    outline = BeeDesign.mutedText, outlineVariant = BeeDesign.editorialBorder,
+    error = BeeDesign.error, onError = Color.White,
+    errorContainer = Color(0xFFF9DFE3), onErrorContainer = Color(0xFF65172A), scrim = BeeDesign.scrim,
 )
+private val AtmosphericColors = darkColorScheme(
+    primary = BeeDesign.darkAccent, onPrimary = BeeDesign.darkBackground,
+    background = BeeDesign.darkBackground, onBackground = BeeDesign.darkForeground,
+    surface = BeeDesign.darkSurface, onSurface = BeeDesign.darkForeground,
+    surfaceVariant = BeeDesign.darkSurface, onSurfaceVariant = BeeDesign.darkSecondary,
+    outline = BeeDesign.darkSecondary, outlineVariant = BeeDesign.darkBorder,
+    error = Color(0xFFFFB2BE), errorContainer = Color(0xFF492632), onErrorContainer = Color(0xFFFFDAE1),
+)
+
+@Composable
+fun AtmosphericTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = AtmosphericColors) {
+        CompositionLocalProvider(LocalContentColor provides BeeDesign.darkForeground, content = content)
+    }
+}
 
 @Composable
 fun BeeMindTheme(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = Colors, typography = BeeDesign.typography,
-            shapes = Shapes(medium = BeeDesign.button, large = BeeDesign.card, extraLarge = BeeDesign.panel),
-            content = { Surface(Modifier.fillMaxSize(), color = Colors.background, contentColor = Colors.onBackground, content = content) })
+        MaterialTheme(colorScheme = EditorialColors, typography = BeeDesign.typography,
+            shapes = Shapes(medium = BeeDesign.button, large = BeeDesign.card, extraLarge = BeeDesign.panel)) {
+            Surface(Modifier.fillMaxSize(), color = EditorialColors.background,
+                contentColor = EditorialColors.onBackground, content = content)
+        }
     }
 }

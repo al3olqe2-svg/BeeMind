@@ -1,5 +1,7 @@
 package com.beemind.personal.ui.notes
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,46 +33,53 @@ import com.beemind.personal.ui.theme.BeeDesign
 
 @Composable
 fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
-    onResume: (DraftSummary) -> Unit, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxSize().background(BeeDesign.atmosphere).systemBarsPadding()) {
-        Box(Modifier.fillMaxWidth().padding(start = BeeDesign.page, end = BeeDesign.page, top = 48.dp)) {
-            RainbowLine()
-        }
-        Box(Modifier.fillMaxSize().padding(top = 88.dp, bottom = 96.dp)) {
-            when (state) {
-                HomeState.Loading -> {
-                    val loadingLabel = stringResource(R.string.loading_notes)
-                    Spacer(Modifier.semantics { stateDescription = loadingLabel })
-                }
-                HomeState.Error -> Box(Modifier.padding(BeeDesign.page)) {
-                    ErrorPanel(stringResource(R.string.notes_error), onRetry = onRetry)
-                }
-                is HomeState.Ready -> if (state.notes.isNotEmpty()) {
-                    val density = LocalDensity.current
-                    val widthPx = LocalWindowInfo.current.containerSize.width
-                    val columns = masonryColumns((widthPx / density.density).toInt(), density.fontScale)
-                    LazyVerticalStaggeredGrid(
-                        columns = StaggeredGridCells.Fixed(columns),
-                        modifier = Modifier.fillMaxSize().testTag("notes_grid").semantics { isTraversalGroup = true },
-                        contentPadding = PaddingValues(start = BeeDesign.page, end = BeeDesign.page, top = 12.dp, bottom = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(BeeDesign.gap),
-                        verticalItemSpacing = BeeDesign.gap,
-                    ) {
-                        itemsIndexed(state.notes, key = { _, note -> note.id }, contentType = { _, _ -> "note" }) { index, note ->
-                            NoteCard(note, index, onClick = { onOpen(note.id) })
+    onResume: (DraftSummary) -> Unit, onRetry: () -> Unit,
+    onSettings: () -> Unit = {}, wallpaper: @Composable () -> Unit = {}) {
+    Box(Modifier.fillMaxSize().background(BeeDesign.atmosphere)) {
+        wallpaper()
+        Box(Modifier.fillMaxSize().systemBarsPadding()) {
+            IconButton(onClick = onSettings, modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd)
+                .padding(horizontal = 12.dp).size(BeeDesign.touchTarget).testTag("wallpaper_settings_open")) {
+                Icon(Icons.Outlined.Settings, "إعدادات الخلفيات", tint = BeeDesign.darkForeground, modifier = Modifier.size(22.dp))
+            }
+            Box(Modifier.fillMaxWidth().padding(start = BeeDesign.page, end = BeeDesign.page, top = 48.dp)) {
+                RainbowLine()
+            }
+            Box(Modifier.fillMaxSize().padding(top = 88.dp, bottom = 96.dp)) {
+                when (state) {
+                    HomeState.Loading -> {
+                        val loadingLabel = stringResource(R.string.loading_notes)
+                        Spacer(Modifier.semantics { stateDescription = loadingLabel })
+                    }
+                    HomeState.Error -> Box(Modifier.padding(BeeDesign.page)) {
+                        ErrorPanel(stringResource(R.string.notes_error), onRetry = onRetry)
+                    }
+                    is HomeState.Ready -> if (state.notes.isNotEmpty()) {
+                        val density = LocalDensity.current
+                        val widthPx = LocalWindowInfo.current.containerSize.width
+                        val columns = masonryColumns((widthPx / density.density).toInt(), density.fontScale)
+                        LazyVerticalStaggeredGrid(
+                            columns = StaggeredGridCells.Fixed(columns),
+                            modifier = Modifier.fillMaxSize().testTag("notes_grid").semantics { isTraversalGroup = true },
+                            contentPadding = PaddingValues(start = BeeDesign.page, end = BeeDesign.page, top = 12.dp, bottom = 24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(BeeDesign.gap),
+                            verticalItemSpacing = BeeDesign.gap,
+                        ) {
+                            itemsIndexed(state.notes, key = { _, note -> note.id }, contentType = { _, _ -> "note" }) { index, note ->
+                                NoteCard(note, index, onClick = { onOpen(note.id) })
+                            }
                         }
                     }
                 }
             }
-        }
-        Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
-            NeonAdd(enabled = state is HomeState.Ready, onClick = {
-                if (state is HomeState.Ready) state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate()
-            })
+            Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
+                NeonAdd(enabled = state is HomeState.Ready, onClick = {
+                    if (state is HomeState.Ready) state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate()
+                })
+            }
         }
     }
-
 }
 
 @Composable
@@ -80,12 +89,12 @@ internal fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
     val illumination by animateFloatAsState(if (pressed) 1f else 0f,
         animationSpec = tween(BeeDesign.pressMillis), label = "card touch")
     val edge = if (illumination > 0f) Brush.linearGradient(BeeDesign.spectrum.map {
-        androidx.compose.ui.graphics.lerp(BeeDesign.border, it, illumination * 0.75f)
-    }) else Brush.linearGradient(listOf(BeeDesign.border, BeeDesign.border))
+        androidx.compose.ui.graphics.lerp(BeeDesign.darkBorder, it, illumination * 0.75f)
+    }) else Brush.linearGradient(listOf(BeeDesign.darkBorder, BeeDesign.darkBorder))
     val traitLabel = if (note.expressiveTrait == ExpressiveTrait.NONE) "" else stringResource(note.expressiveTrait.labelResource())
     Box(Modifier.fillMaxWidth().expressiveHalo(note.expressiveTrait)) {
         Card(onClick = onClick, interactionSource = interaction, border = BorderStroke(if (note.expressiveTrait == ExpressiveTrait.NONE) 1.dp else 2.dp,
-            if (note.expressiveTrait == ExpressiveTrait.NONE) edge else note.expressiveTrait.edgeBrush()), shape = BeeDesign.card, colors = CardDefaults.cardColors(containerColor = BeeDesign.surface),
+            if (note.expressiveTrait == ExpressiveTrait.NONE) edge else note.expressiveTrait.edgeBrush()), shape = BeeDesign.card, colors = CardDefaults.cardColors(containerColor = BeeDesign.darkSurface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag("note_${note.id}")
                 .semantics { traversalIndex = index.toFloat() + 1; stateDescription = traitLabel + (note.reminderDueAt?.let { "، تذكير: ${reminderTimestamp(it)}" } ?: "") }) {
@@ -94,7 +103,7 @@ internal fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
             } else Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (note.preview.isNotBlank()) {
                     Text(note.preview, style = MaterialTheme.typography.bodyMedium, maxLines = 8,
-                        overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        overflow = TextOverflow.Ellipsis, color = BeeDesign.darkSecondary)
                 }
 
             }

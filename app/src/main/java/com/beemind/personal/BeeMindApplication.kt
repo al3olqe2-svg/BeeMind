@@ -8,6 +8,10 @@ import com.beemind.personal.data.local.BeeMindDatabase
 import com.beemind.personal.domain.NotesRepository
 
 class BeeMindApplication : Application() {
+    val wallpapers by lazy { com.beemind.personal.wallpaper.WallpaperRepository(this) }
+    val wallpaperImages by lazy { com.beemind.personal.wallpaper.WallpaperImages() }
+    val wallpaperScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val wallpaperSessions = com.beemind.personal.wallpaper.WallpaperSessions()
     val database: BeeMindDatabase by lazy { BeeMindDatabase.create(this) }
     val reminderScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val reminderScheduler by lazy { AndroidReminderScheduler(this) }

@@ -39,7 +39,7 @@ fun ExpressiveTrait.edgeBrush(): Brush = when (this) {
  */
 fun Modifier.expressiveHalo(trait: ExpressiveTrait): Modifier = if (trait == ExpressiveTrait.NONE) this else drawWithCache {
     val brush = trait.edgeBrush()
-    val radius = CornerRadius(20.dp.toPx())
+    val radius = CornerRadius(BeeDesign.cardRadius.toPx())
     onDrawBehind {
         if (size.width <= 0f || size.height <= 0f) return@onDrawBehind
         drawRoundRect(brush, cornerRadius = radius, style = Stroke(10.dp.toPx()), alpha = 0.055f)

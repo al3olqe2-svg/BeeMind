@@ -12,6 +12,17 @@ import com.beemind.personal.ui.theme.BeeMindTheme
 
 class MainActivity : ComponentActivity() {
     val reminderOpen = kotlinx.coroutines.flow.MutableStateFlow<Pair<String, String>?>(null)
+    override fun onStart() {
+        super.onStart()
+        val app = application as BeeMindApplication
+        if (app.wallpaperSessions.enter()) app.wallpaperScope.launch {
+            try { app.wallpapers.newSession() } catch (_: java.io.IOException) { /* Keep the last wallpaper; retry next session. */ }
+        }
+    }
+    override fun onStop() {
+        (application as BeeMindApplication).wallpaperSessions.leave(isChangingConfigurations)
+        super.onStop()
+    }
     override fun onResume() {
         super.onResume()
         val app = application as BeeMindApplication

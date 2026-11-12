@@ -6,6 +6,7 @@ compose-bom = "2025.04.01"
 room = "2.7.1"
 
 [libraries]
+androidx-exif = { module = "androidx.exifinterface:exifinterface", version = "1.4.0" }
 androidx-core = { module = "androidx.core:core-ktx", version = "1.16.0" }
 androidx-activity = { module = "androidx.activity:activity-compose", version = "1.10.1" }
 androidx-lifecycle = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version = "2.9.0" }
