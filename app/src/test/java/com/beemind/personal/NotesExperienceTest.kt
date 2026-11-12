@@ -61,27 +61,103 @@ class NotesExperienceTest {
         waitForTag("note_$id"); compose.onNodeWithTag("note_$id").performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
     }
-    private fun traits() { compose.onNodeWithText("السمات").performClick() }
-    private fun closeTraits() { compose.onNodeWithText("تم", useUnmergedTree = true).performScrollTo().performClick() }
-    private fun chooseTrait(label: String) {
-        traits()
-        compose.onNodeWithTag("trait_picker").performClick()
-        compose.onNodeWithText(label, useUnmergedTree = true).performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("شخصية الملاحظة").fetchSemanticsNodes().isEmpty() }
-        closeTraits()
+    private fun traits() { compose.onNodeWithTag("editor_tools").performClick() }
+    private fun closeTraits() {
+        if (compose.onAllNodesWithContentDescription("إغلاق الأدوات").fetchSemanticsNodes().isNotEmpty())
+            compose.onNodeWithTag("editor_tools").performClick()
     }
+    private fun chooseTrait(label: String) {
+        traits(); compose.onNodeWithTag("tool_expressive").performClick()
+        val value = when(label) { "Glow — الوهج" -> "GLOW"; "Anger — الغضب" -> "ANGER"; else -> "NONE" }
+        compose.onNodeWithTag("expressive_$value").performClick(); closeTraits()
+    }
+    private fun exitEditorHome() {
+        closeTraits(); compose.onNodeWithContentDescription("رجوع").performClick()
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithTag("editor_body").fetchSemanticsNodes().isEmpty() &&
+                (compose.onAllNodesWithTag("new_note").fetchSemanticsNodes().isNotEmpty() ||
+                 compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty())
+        }
+        if (compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty()) back()
+        home()
+    }
+    private fun temporal(tag: String) { traits(); compose.onNodeWithTag(tag).performClick() }
     private fun threadPanel() {
         waitForTag("manage_threads"); compose.onNodeWithTag("manage_threads").performClick()
         waitForTag("add_thread")
     }
     private fun back() { compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() } }
 
+    @Test fun progressiveToolsKeepWritingAndRequireExplicitCapsuleConfirmation() {
+        openNew(); screenshot("r3-normal-empty")
+        compose.onAllNodesWithTag("save_note").assertCountEquals(0)
+        compose.onAllNodesWithText("السمات").assertCountEquals(0)
+        val body = "أمنح أفكاري مساحة هادئة للكتابة.\nالضوء يمرّ، وتبقى الكلمات واضحة.\n".repeat(4)
+        compose.onNodeWithTag("editor_body").performTextInput(body)
+        screenshot("r3-normal-arabic")
+        traits(); screenshot("r3-primary")
+        for (tag in listOf("tool_expressive", "tool_reminder", "tool_resurface", "tool_capsule")) compose.onNodeWithTag(tag).assertIsDisplayed()
+        compose.onNodeWithTag("tool_expressive").performClick()
+        for (tag in listOf("tool_reminder", "tool_resurface", "tool_capsule")) compose.onAllNodesWithTag(tag).assertCountEquals(0)
+        screenshot("r3-expressive")
+        for (value in listOf("GLOW", "ANGER", "NONE")) {
+            compose.onNodeWithTag("expressive_$value").performClick()
+            compose.onNodeWithTag("expressive_$value").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "محدد"))
+            compose.onNodeWithTag("editor_body").assertTextContains(body)
+            screenshot("r3-$value")
+        }
+        back(); compose.onNodeWithTag("tool_reminder").assertIsDisplayed()
+        compose.onNodeWithTag("tool_reminder").performClick()
+        compose.onNodeWithTag("appointment_plus").performClick(); screenshot("r3-reminder-pending")
+        compose.onNodeWithTag("appointment_date").performClick(); screenshot("r3-date")
+        compose.onNodeWithTag("appointment_dialog_cancel").performClick()
+        compose.onNodeWithTag("appointment_time").performClick(); screenshot("r3-clock")
+        compose.onNodeWithTag("appointment_dialog_cancel").performClick()
+        back(); compose.onNodeWithTag("tool_capsule").performClick()
+        compose.onNodeWithTag("appointment_plus").performClick()
+        compose.onNodeWithTag("appointment_confirm").performScrollTo().performClick()
+        screenshot("r3-capsule-confirmation")
+        compose.onNodeWithText("متابعة الكتابة").performClick()
+        compose.onNodeWithTag("editor_body").assertTextContains(body)
+        assertTrue(runBlocking { repository.observeNotes().first().none { it.locked } })
+        back(); back() // category -> primary -> closed, never exits the editor
+        compose.onNodeWithTag("editor_body").assertExists()
+        exitEditorHome()
+        assertEquals(body, runBlocking { repository.getNote(repository.observeNotes().first().single().id)!!.body })
+    }
+    @Test fun temporalCategoriesRetainIndependentDeadlinesAndRemoveThroughSave() {
+        openNew(); compose.onNodeWithTag("editor_body").performTextInput("مواعيد مستقلة")
+        temporal("tool_reminder"); compose.onNodeWithTag("appointment_plus").performClick()
+        val reminderSummary = compose.onNodeWithTag("appointment_summary").fetchSemanticsNode().config[SemanticsProperties.Text].toString()
+        compose.onNodeWithTag("appointment_confirm").performScrollTo().performClick()
+        temporal("tool_resurface"); repeat(4) { compose.onNodeWithTag("appointment_plus").performClick() }
+        val resurfaceSummary = compose.onNodeWithTag("appointment_summary").fetchSemanticsNode().config[SemanticsProperties.Text].toString()
+        assertNotEquals(reminderSummary, resurfaceSummary)
+        compose.onNodeWithTag("appointment_confirm").performScrollTo().performClick()
+        temporal("tool_reminder")
+        assertEquals(reminderSummary, compose.onNodeWithTag("appointment_summary").fetchSemanticsNode().config[SemanticsProperties.Text].toString())
+        compose.onNodeWithTag("appointment_confirm").performScrollTo().performClick()
+        exitEditorHome()
+        val saved = runBlocking { repository.getNote(repository.observeNotes().first().single().id)!! }
+        assertTrue(saved.resurfaceAt!! > saved.reminder!!.dueAt)
+        openNote(saved.id); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
+        temporal("tool_capsule"); compose.onNodeWithTag("appointment_plus").performClick()
+        back(); compose.onNodeWithTag("tool_resurface").performClick()
+        assertEquals(resurfaceSummary, compose.onNodeWithTag("appointment_summary").fetchSemanticsNode().config[SemanticsProperties.Text].toString())
+        compose.onNodeWithTag("appointment_remove").performScrollTo().performClick()
+        temporal("tool_reminder"); compose.onNodeWithTag("appointment_remove").performScrollTo().performClick()
+        exitEditorHome()
+        val removed = runBlocking { repository.getNote(saved.id)!! }
+        assertEquals("CANCELLED", removed.reminder!!.status); assertNull(removed.resurfaceAt)
+        assertNull(removed.unlockAt); assertEquals(saved.createdAt, removed.createdAt)
+        assertEquals(saved.body, removed.body)
+    }
     @Test fun emptyCompositionContainsOnlyIdentityAndAddAndEmptyBackCreatesNothing() {
         home(); compose.onNodeWithTag("rainbow_line").assertExists()
         compose.onAllNodesWithText("BeeMind").assertCountEquals(0)
         compose.onAllNodesWithText("اكتب أول ملاحظة").assertCountEquals(0)
         screenshot("home-minimal")
-        openNew(); compose.onNodeWithTag("save_note").assertIsNotEnabled()
+        openNew(); compose.onAllNodesWithTag("save_note").assertCountEquals(0)
         compose.onNodeWithTag("editor_body").performTextInput("  \n ")
         back(); home(); assertTrue(runBlocking { repository.observeNotes().first().isEmpty() })
     }
@@ -96,7 +172,7 @@ class NotesExperienceTest {
         }
         compose.activityRule.scenario.recreate(); waitForTag("editor_body")
         compose.onNodeWithTag("editor_body").assertTextContains(text)
-        compose.onNodeWithTag("save_note").performClick(); home()
+        exitEditorHome()
         val note = runBlocking { repository.getNote(repository.observeNotes().first().single().id)!! }
         assertEquals(text, note.body); assertNull(note.title)
     }
@@ -109,7 +185,7 @@ class NotesExperienceTest {
         compose.onAllNodesWithText("السمة:", substring = true).assertCountEquals(0)
         compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
         compose.onNodeWithTag("editor_body").performTextReplacement("تعديل محفوظ")
-        compose.onNodeWithTag("save_note").performClick(); home()
+        exitEditorHome()
         assertEquals(1, runBlocking { repository.observeNotes().first().size })
         val edited = runBlocking { repository.getNote(first.id)!! }
         assertEquals(first.createdAt, edited.createdAt); assertEquals("تعديل محفوظ", edited.body)
@@ -126,14 +202,14 @@ class NotesExperienceTest {
         org.robolectric.RuntimeEnvironment.setFontScale(1.5f); compose.activityRule.scenario.recreate()
         openNew(); compose.onNodeWithTag("editor_body").performTextInput("عربي English 123. ".repeat(50))
         chooseTrait("Glow — الوهج")
-        compose.onNodeWithTag("save_note").assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithTag("editor_tools").assertIsDisplayed().assertIsEnabled()
         screenshot("editor-small-large-font")
-        compose.onNodeWithTag("save_note").performClick(); home()
+        exitEditorHome()
         assertEquals(ExpressiveTrait.GLOW, runBlocking { repository.observeNotes().first().single().expressiveTrait })
     }
     @Test fun glowAngerAndRemovalRemainExclusiveAndPersistent() {
         openNew(); compose.onNodeWithTag("editor_body").performTextInput("شخصية مرئية")
-        chooseTrait("Glow — الوهج"); compose.onNodeWithTag("save_note").performClick(); home()
+        chooseTrait("Glow — الوهج"); exitEditorHome()
         val id = runBlocking { repository.observeNotes().first().single().id }
         for ((label, trait) in listOf("Anger — الغضب" to ExpressiveTrait.ANGER, "إزالة السمة" to ExpressiveTrait.NONE)) {
             openNote(id); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
@@ -147,7 +223,7 @@ class NotesExperienceTest {
     }
     @Test fun reminderPlusFiveAccumulatesAndExistingDeadlineIsPreserved() {
         openNew(); compose.onNodeWithTag("editor_body").performTextInput("لها موعد")
-        traits(); compose.onNodeWithText("＋ تذكير").performClick()
+        temporal("tool_reminder")
         compose.onNodeWithText("+5").performClick(); compose.onNodeWithText("5 د").assertExists()
         compose.onNodeWithText("+5").performClick(); compose.onNodeWithText("10 د").assertExists()
         compose.onNodeWithText("+5").performClick(); compose.onNodeWithText("15 د").assertExists()
@@ -155,30 +231,33 @@ class NotesExperienceTest {
         screenshot("time-minimal")
         compose.onNodeWithText("اعتماد").performScrollTo().performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("+5").fetchSemanticsNodes().isEmpty() }
-        closeTraits(); compose.onNodeWithTag("save_note").performClick(); home()
+        closeTraits(); exitEditorHome()
         val saved = runBlocking { repository.getNote(repository.observeNotes().first().single().id)!! }
         assertTrue(saved.reminder!!.dueAt > System.currentTimeMillis() + 1100000)
         openNote(saved.id); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
-        traits(); compose.onNodeWithText("◷ تذكير مفعّل").performClick()
+        temporal("tool_reminder")
         compose.onAllNodesWithText("5 د").assertCountEquals(0)
         compose.onNodeWithText("اعتماد").performScrollTo().performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("+5").fetchSemanticsNodes().isEmpty() }
-        closeTraits(); compose.onNodeWithTag("save_note").performClick(); home()
+        closeTraits(); exitEditorHome()
         assertEquals(saved.reminder!!.dueAt, runBlocking { repository.getNote(saved.id)!!.reminder!!.dueAt })
         assertEquals(saved.reminder!!.generation, runBlocking { repository.getNote(saved.id)!!.reminder!!.generation })
-        // The direct management path is also used by the locked capsule cover.
+        // Reconfirming the clock's unchanged visible hour/minute must not zero its hidden seconds.
         openNote(saved.id); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
-        traits(); compose.onNodeWithText("تغيير الموعد").performScrollTo().performClick()
+        temporal("tool_reminder")
+        compose.onNodeWithTag("appointment_time").performClick()
+        compose.onNodeWithText("اختيار").performClick()
         compose.onNodeWithText("اعتماد").performScrollTo().performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("+5").fetchSemanticsNodes().isEmpty() }
-        closeTraits(); compose.onNodeWithTag("save_note").performClick(); home()
+        closeTraits(); exitEditorHome()
         assertEquals(saved.reminder, runBlocking { repository.getNote(saved.id)!!.reminder })
     }
     @Test @Config(qualifiers = "w320dp-h640dp")
     fun calendarAndTimeAreAvailableOnSmallPhone() {
-        openNew(); traits(); compose.onNodeWithText("＋ تذكير").performClick()
+        openNew(); temporal("tool_reminder")
         compose.onNodeWithContentDescription("اختيار التاريخ").performClick(); screenshot("date-small")
         compose.onNodeWithText("اختيار").performClick()
+        screenshot("r3-temporal-error")
         compose.onNodeWithContentDescription("اختيار الوقت").performClick()
         compose.onNodeWithText("الساعة والدقيقة").assertIsDisplayed(); screenshot("time-small")
         compose.onNodeWithText("اختيار").performClick()
@@ -187,10 +266,11 @@ class NotesExperienceTest {
     }
     @Test fun capsuleRemainsPrivateInHomeReadingAndEditorUntilDeadline() {
         openNew(); compose.onNodeWithTag("editor_body").performTextInput("نص محجوب")
-        traits(); compose.onNodeWithText("◈ كبسولة زمنية").performClick()
+        temporal("tool_capsule")
         compose.onNodeWithText("+5").performClick(); compose.onNodeWithText("اعتماد").performScrollTo().performClick()
+        compose.onNodeWithTag("capsule_seal_confirm").performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("+5").fetchSemanticsNodes().isEmpty() }
-        closeTraits(); compose.onNodeWithTag("save_note").performClick(); home()
+        closeTraits(); exitEditorHome()
         compose.onAllNodesWithText("نص محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
         val id = runBlocking { repository.observeNotes().first().single().id }
         openNote(id); compose.onNodeWithContentDescription("تعديل الملاحظة").assertIsNotEnabled()
@@ -262,7 +342,7 @@ class NotesExperienceTest {
         }
         val id = runBlocking { repository.observeNotes().first().single().id }
         compose.onNodeWithTag("editor_body").performTextInput(" وآخر حرف")
-        compose.onNodeWithTag("save_note").performClick(); home()
+        exitEditorHome()
         assertEquals(1, runBlocking { repository.observeNotes().first().size })
         assertEquals("حفظ تلقائي أثناء الكتابة وآخر حرف", runBlocking { repository.getNote(id)!!.body })
     }
@@ -271,7 +351,7 @@ class NotesExperienceTest {
             com.beemind.personal.domain.ReminderEdit(true, System.currentTimeMillis() + 3600000)) }
         val initial = runBlocking { repository.getNote("reminder")!! }
         openNote("reminder"); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
-        traits(); compose.onNodeWithText("تأجيل 10 دقائق").performScrollTo().performClick()
+        temporal("tool_reminder"); compose.onNodeWithTag("reminder_info").performClick(); compose.onNodeWithText("تأجيل 10 دقائق").performScrollTo().performClick()
         compose.waitUntil(15000) { runBlocking { repository.getNote("reminder")!!.reminder!!.status == "SNOOZED" } }
         val snoozed = runBlocking { repository.getNote("reminder")!!.reminder!! }
         // Wait for the UI to observe Snooze's new generation, not just the Room commit.
@@ -281,7 +361,7 @@ class NotesExperienceTest {
         }
         compose.onNodeWithText("إنجاز").performScrollTo().performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("تم إنجازه").fetchSemanticsNodes().isNotEmpty() }
-        closeTraits(); compose.onNodeWithTag("save_note").performClick(); home()
+        compose.onNodeWithText("تم").performClick(); closeTraits(); exitEditorHome()
         val note = runBlocking { repository.getNote("reminder")!! }
         assertEquals(initial.body, note.body); assertEquals(initial.createdAt, note.createdAt)
         assertEquals("DONE", note.reminder!!.status); assertEquals(ExpressiveTrait.GLOW, note.expressiveTrait)
@@ -301,7 +381,7 @@ class NotesExperienceTest {
         compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
         compose.onAllNodesWithTag("editor_title").assertCountEquals(0)
         compose.onNodeWithTag("editor_body").performTextReplacement("تعديل المتن")
-        compose.onNodeWithTag("save_note").performClick(); home()
+        exitEditorHome()
         assertEquals("عنوان داخلي", runBlocking { repository.getNote("short")!!.title })
         assertEquals("تعديل المتن", runBlocking { repository.getNote("short")!!.body })
     }
