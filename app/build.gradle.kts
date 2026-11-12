@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.7.0-r1"
+        versionName = "0.7.1-r2"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {

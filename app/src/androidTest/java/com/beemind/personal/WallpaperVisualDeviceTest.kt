@@ -32,9 +32,12 @@ class WallpaperVisualDeviceTest {
         directory.deleteRecursively(); prefs.edit().clear().commit()
         val repo = WallpaperRepository(directory, prefs); val images = WallpaperImages()
         val notes = listOf(
-            NoteSummary("visual-a", null, "أفكار هادئة ومساحة للكتابة. ".repeat(12), 3, 3, ExpressiveTrait.GLOW),
-            NoteSummary("visual-b", null, "تفاصيل صغيرة تستحق أن نتذكرها.", 2, 2, ExpressiveTrait.ANGER),
-            NoteSummary("visual-c", null, "", 1, 1, locked = true, unlockAt = System.currentTimeMillis() + 600000))
+            NoteSummary("short", null, "تفاصيل صغيرة تستحق أن نتذكرها.", 6, 6),
+            NoteSummary("c", null, "ضوء الصباح على صفحة لم تكتب بعد.", 5, 5, ExpressiveTrait.GLOW),
+            NoteSummary("a", null, "أحيانًا نحتاج أن نقول ما نشعر به ثم نمضي.", 4, 4, ExpressiveTrait.ANGER),
+            NoteSummary("d", null, "", 3, 3, locked = true, unlockAt = 1800000000000),
+            NoteSummary("e", null, "فكرة قديمة تستحق نظرة جديدة.", 2, 2, resurfaced = true),
+            NoteSummary("long", null, "أفكار هادئة ومساحة للكتابة. ".repeat(20), 1, 1))
         try {
             repo.initialize()
             for (scene in listOf("fallback", "sea", "bright", "dark", "portrait", "detail")) {
@@ -67,7 +70,7 @@ class WallpaperVisualDeviceTest {
                     instrument.waitForIdleSync(); Thread.sleep(1500); instrument.waitForIdleSync()
                     val screenshot = checkNotNull(instrument.uiAutomation.takeScreenshot())
                     assertTrue(screenshot.width > 0)
-                    File(context.filesDir,"r1-native-$scene.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG,100,it) }
+                    File(context.filesDir,"r2-native-$scene.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG,100,it) }
                     screenshot.recycle()
                 }
             }

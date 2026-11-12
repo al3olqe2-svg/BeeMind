@@ -3,15 +3,9 @@ package com.beemind.personal.ui.notes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import com.beemind.personal.ui.theme.HomeMaterials
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.*
 import androidx.compose.material3.*
@@ -22,12 +16,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.beemind.personal.R
-import com.beemind.personal.domain.ExpressiveTrait
 import com.beemind.personal.domain.DraftSummary
-import com.beemind.personal.domain.NoteSummary
 import com.beemind.personal.ui.components.*
 import com.beemind.personal.ui.theme.BeeDesign
 
@@ -40,12 +31,15 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
         Box(Modifier.fillMaxSize().systemBarsPadding()) {
             IconButton(onClick = onSettings, modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd)
                 .padding(horizontal = 12.dp).size(BeeDesign.touchTarget).testTag("wallpaper_settings_open")) {
-                Icon(Icons.Outlined.Settings, "إعدادات الخلفيات", tint = BeeDesign.darkForeground, modifier = Modifier.size(22.dp))
+                Box(Modifier.size(36.dp).background(HomeMaterials.control, CircleShape)
+                    .border(.6.dp, HomeMaterials.edge, CircleShape), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Icon(Icons.Outlined.Settings, "إعدادات الخلفيات", tint = BeeDesign.darkForeground, modifier = Modifier.size(21.dp))
+                }
             }
             Box(Modifier.fillMaxWidth().padding(start = BeeDesign.page, end = BeeDesign.page, top = 48.dp)) {
                 RainbowLine()
             }
-            Box(Modifier.fillMaxSize().padding(top = 88.dp, bottom = 96.dp)) {
+            Box(Modifier.fillMaxSize().padding(top = 88.dp, bottom = 72.dp)) {
                 when (state) {
                     HomeState.Loading -> {
                         val loadingLabel = stringResource(R.string.loading_notes)
@@ -74,38 +68,9 @@ fun HomeScreen(state: HomeState, onCreate: () -> Unit, onOpen: (String) -> Unit,
             }
             Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = androidx.compose.ui.Alignment.CenterEnd) {
-                NeonAdd(enabled = state is HomeState.Ready, onClick = {
+                MiniGlassAdd(enabled = state is HomeState.Ready, onClick = {
                     if (state is HomeState.Ready) state.draft?.takeIf { it.noteId == null }?.let(onResume) ?: onCreate()
                 })
-            }
-        }
-    }
-}
-
-@Composable
-internal fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val illumination by animateFloatAsState(if (pressed) 1f else 0f,
-        animationSpec = tween(BeeDesign.pressMillis), label = "card touch")
-    val edge = if (illumination > 0f) Brush.linearGradient(BeeDesign.spectrum.map {
-        androidx.compose.ui.graphics.lerp(BeeDesign.darkBorder, it, illumination * 0.75f)
-    }) else Brush.linearGradient(listOf(BeeDesign.darkBorder, BeeDesign.darkBorder))
-    val traitLabel = if (note.expressiveTrait == ExpressiveTrait.NONE) "" else stringResource(note.expressiveTrait.labelResource())
-    Box(Modifier.fillMaxWidth().expressiveHalo(note.expressiveTrait)) {
-        Card(onClick = onClick, interactionSource = interaction, border = BorderStroke(if (note.expressiveTrait == ExpressiveTrait.NONE) 1.dp else 2.dp,
-            if (note.expressiveTrait == ExpressiveTrait.NONE) edge else note.expressiveTrait.edgeBrush()), shape = BeeDesign.card, colors = CardDefaults.cardColors(containerColor = BeeDesign.darkSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp).testTag("note_${note.id}")
-                .semantics { traversalIndex = index.toFloat() + 1; stateDescription = traitLabel + (note.reminderDueAt?.let { "، تذكير: ${reminderTimestamp(it)}" } ?: "") }) {
-            if (note.locked) {
-                CapsuleCover(checkNotNull(note.unlockAt))
-            } else Column(Modifier.padding(BeeDesign.cardPadding), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (note.preview.isNotBlank()) {
-                    Text(note.preview, style = MaterialTheme.typography.bodyMedium, maxLines = 8,
-                        overflow = TextOverflow.Ellipsis, color = BeeDesign.darkSecondary)
-                }
-
             }
         }
     }

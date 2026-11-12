@@ -20,7 +20,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.beemind.personal.domain.ExpressiveTrait
 import com.beemind.personal.domain.NoteSummary
-import com.beemind.personal.ui.components.NeonAdd
+import com.beemind.personal.ui.components.MiniGlassAdd
 import com.beemind.personal.ui.components.RainbowLine
 import com.beemind.personal.ui.notes.NoteCard
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
@@ -54,10 +54,10 @@ class NativeVisualProbeTest {
                         "insets" -> Box(Modifier.fillMaxSize().systemBarsPadding())
                         "composition" -> Box(Modifier.fillMaxSize().background(BeeDesign.atmosphere)) {
                             Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 48.dp)) { RainbowLine() }
-                            Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)) { NeonAdd { } }
+                            Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)) { MiniGlassAdd { } }
                         }
                         "rainbow" -> RainbowLine()
-                        "fab" -> NeonAdd { }
+                        "fab" -> MiniGlassAdd { }
                         "card" -> NoteCard(NoteSummary("visual-a", null, "ملاحظة تجريبية Synthetic note", 1, 1), 0) {}
                         "grid" -> LazyVerticalStaggeredGrid(columns = StaggeredGridCells.Fixed(1), modifier = Modifier.fillMaxSize()) {
                             item { Text("ملاحظة تجريبية Synthetic note", style = MaterialTheme.typography.bodyMedium) }
