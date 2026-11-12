@@ -1,5 +1,7 @@
 package com.beemind.personal.ui
 
+import com.beemind.personal.ui.wallpaper.*
+import com.beemind.personal.ui.theme.AtmosphericTheme
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
@@ -33,7 +35,20 @@ import kotlinx.coroutines.launch
 fun BeeMindApp() {
     val context = LocalContext.current
     val repository = (context.applicationContext as BeeMindApplication).notesRepository
+    val wallpaperVm: WallpaperViewModel = viewModel(factory = viewModelFactory {
+        initializer { WallpaperViewModel(context.applicationContext as BeeMindApplication) }
+    })
+    val wallpaperState by wallpaperVm.state.collectAsStateWithLifecycle()
     val nav = rememberNavController()
+    val destination by nav.currentBackStackEntryAsState()
+    val home = destination?.destination?.route.let { it == null || it == "home" }
+    SideEffect {
+        val window = (context as com.beemind.personal.MainActivity).window
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !home
+            isAppearanceLightNavigationBars = !home
+        }
+    }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, repository) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -102,13 +117,20 @@ fun BeeMindApp() {
             composable("home") { entry ->
                 val vm: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(repository) } })
                 val state by vm.state.collectAsStateWithLifecycle()
-                HomeScreen(state, onCreate = { openEditor(null, entry) }, onOpen = { id -> scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
+                AtmosphericTheme { HomeScreen(state, onCreate = { openEditor(null, entry) }, onOpen = { id -> scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
                         if (nav.currentBackStackEntry === entry) nav.navigate("note/$id") { launchSingleTop = true }
                     } } },
                     onResume = { draft -> scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
                         if (nav.currentBackStackEntry === entry) nav.navigate("editor/${draft.sessionId}" + (draft.noteId?.let { "?noteId=$it" } ?: "")) { launchSingleTop = true }
                     } } },
-                    onRetry = vm::retry)
+                    onRetry = vm::retry,
+                    onSettings = { scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
+                        if (nav.currentBackStackEntry === entry) nav.navigate("wallpapers") { launchSingleTop = true }
+                    } } },
+                    wallpaper = { WallpaperBackground(wallpaperState, wallpaperVm.repository, wallpaperVm.images, Modifier.fillMaxSize()) }) }
+            }
+            composable("wallpapers") { entry ->
+                WallpaperSettingsScreen(wallpaperVm, onBack = { goBack(entry) })
             }
             composable("note/{noteId}") { entry ->
                 val id = requireNotNull(entry.arguments?.getString("noteId"))

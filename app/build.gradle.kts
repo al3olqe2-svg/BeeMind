@@ -11,7 +11,7 @@ val hasSigning = signingValues.values.all { !it.isNullOrBlank() }
 require(signingValues.values.none { !it.isNullOrBlank() } || hasSigning) {
     "Provide all four BeeMind signing variables or none."
 }
-val buildNumber = providers.environmentVariable("BEEMIND_VERSION_CODE").orElse("50").get().toInt()
+val buildNumber = providers.environmentVariable("BEEMIND_VERSION_CODE").orElse("51").get().toInt()
 require(buildNumber in 1..2100000000) { "Invalid Android versionCode" }
 
 android {
@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.6.5"
+        versionName = "0.7.0-r1"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {
@@ -65,6 +65,7 @@ kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarg
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 dependencies {
+    implementation(libs.androidx.exif)
     implementation(libs.androidx.core)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.lifecycle)

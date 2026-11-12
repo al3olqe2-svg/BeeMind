@@ -40,7 +40,7 @@ fun NeonAdd(enabled: Boolean = true, onClick: () -> Unit) {
         onDrawBehind { if (halo != null) drawCircle(halo, radius = radius, center = center) }
     }) {
         FloatingActionButton(onClick = { if (enabled) onClick() }, shape = CircleShape,
-            containerColor = Color(0xFF9664EA), contentColor = BeeDesign.ink,
+            containerColor = Color(0xFF9664EA), contentColor = BeeDesign.darkForeground,
             modifier = Modifier.fillMaxSize().testTag(if (enabled) "new_note" else "new_note_loading")
                 .semantics { if (!enabled) disabled() }) {
             Icon(Icons.Default.Add, "إضافة ملاحظة", Modifier.size(30.dp))
