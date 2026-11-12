@@ -13,8 +13,6 @@
     <string name="delete_confirm">حذف نهائي</string>
     <string name="deleting">جارٍ الحذف…</string>
     <string name="cancel">إلغاء</string>
-    <string name="save_note">حفظ</string>
-    <string name="saving">جارٍ الحفظ…</string>
     <string name="body_hint">ما الذي يشغل بالك اليوم؟</string>
     <string name="empty_error">اكتب نصًا قبل الحفظ؛ المسافات وحدها لا تكفي.</string>
     <string name="save_error">تعذّر حفظ الملاحظة. نصك ما زال في المحرر؛ حاول مجددًا.</string>

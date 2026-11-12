@@ -144,6 +144,29 @@ class EditorViewModelTest {
         val vm = EditorViewModel(repo, "session", "old").also { store.put("old", it) }
         vm.save(); assertEquals(0, repo.saveCalls); assertEquals("old", vm.state.value.savedId)
     }
+    @Test fun confirmedCapsuleWaitsThroughDebounceAndFailureBeforeSuccessfulRetry() = runTest {
+        val repo = FakeRepository(); val vm = editor(repo)
+        vm.body.edit { append("كل الحروف قبل القفل") }; vm.selectCapsule(100000)
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications(); runCurrent()
+        advanceTimeBy(2000); runCurrent()
+        assertTrue(repo.notes.isEmpty()); assertEquals(100000L, repo.draft!!.temporalEdit.sealUntil)
+        assertEquals("كل الحروف قبل القفل", vm.body.text.toString())
+        repo.failSave = true; vm.requestExit()
+        assertEquals(EditorError.SAVE, vm.state.value.error)
+        assertNull(vm.state.value.lockedUntil); assertFalse(vm.state.value.exited)
+        assertEquals("كل الحروف قبل القفل", vm.body.text.toString())
+        repo.failSave = false; vm.requestExit()
+        assertEquals(100000L, vm.state.value.lockedUntil)
+        assertEquals("كل الحروف قبل القفل", repo.notes["session"]!!.body)
+        assertEquals("", vm.body.text.toString()); assertEquals(1, repo.notes.size)
+    }
+    @Test fun recoveredConfirmedSealSurvivesBackgroundFlush() = runTest {
+        val repo = FakeRepository().apply { draft = EditorDraft("session", null, "", "مستعاد", 1,
+            temporalEdit = TemporalEdit(sealUntil = 100000)) }
+        val vm = editor(repo); vm.persistOnBackground(); advanceUntilIdle()
+        assertEquals(100000L, vm.state.value.lockedUntil)
+        assertEquals("مستعاد", repo.notes["session"]!!.body)
+    }
     private class FakeRepository : NotesRepository {
         override fun observeThreadNotes(id: String, linkedOnly: Boolean) = kotlinx.coroutines.flow.flowOf(emptyList<com.beemind.personal.domain.ThreadNote>())
         override suspend fun setLinked(a: String, b: String, linked: Boolean) { error("Not used by editor tests") }

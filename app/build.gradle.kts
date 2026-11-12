@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.7.1-r2"
+        versionName = "0.7.2-r3"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {
@@ -80,6 +80,8 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)
     testImplementation(libs.junit)
