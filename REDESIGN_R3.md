@@ -66,7 +66,8 @@ metadata only when the value differs. This preserves reminder generation/Done/Sn
 and resurface consumption when an unchanged value is confirmed. Local conversion
 uses `ReminderTimes.local`; past times and DST gaps/overlaps block Apply. Invalid wall
 times remain editable rather than silently falling back to a different day. Epoch
-precision survives untouched confirmations. Compact dates use device timezone and
+precision survives untouched confirmations, including opening the 24-hour input and
+confirming the same visible hour/minute: hidden seconds/milliseconds are retained. Compact dates use device timezone and
 existing `d MMMM • HH:mm` formatting.
 
 The panel has clear Arabic Apply/Cancel/Remove actions, not ambiguous checkmarks.
@@ -119,8 +120,8 @@ an installed data-bearing copy. R4 reading/threads visual work and Stage 6 are d
 ### Executed local verification — 12 November 2026
 JDK 17.0.21 / Android SDK 35:
 `./gradlew --no-daemon --max-workers=2 :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`
-passed after the final visual/resource changes. **130 tests, zero failures/errors/skips;
-lint: no issues.** The original 123 test executions remain, with seven R3 additions.
+passed after the final visual/resource changes. **131 tests, zero failures/errors/skips;
+lint: no issues.** The original 123 test executions remain, with eight R3 additions.
 The two obsolete Save label resources were removed rather than suppressing unused-resource lint.
 
 Opened and reviewed actual JVM-rendered PNGs: empty Normal, Arabic Normal, all four
@@ -135,3 +136,18 @@ regressions and the final CI artifact/run evidence are recorded in that PR and t
 delivery report after the matching run completes. Unconfirmed UI proposals are
 intentionally ephemeral on composition/Activity replacement; durable note text,
 confirmed metadata and recovery drafts retain the existing ViewModel/Room behavior.
+
+A final precision review added an unchanged-clock regression: confirming the displayed
+hour/minute preserves the full epoch (including seconds/milliseconds), while an explicit
+minute edit sets the newly chosen precise minute. This prevents spurious reminder
+regeneration/resurface rescheduling. Its targeted and full executed results are recorded
+in the final PR verification table.
+
+The final local rerun after the clock-precision fix passed all four Gradle tasks
+(131 tests, zero failures; lint clean). CI run #124 had a successful build and full
+API 34 native run, but its API 29 job failed; Azure artifact/log downloads were
+rejected by this execution environment's proxy, so that attempt's exact failure
+could not be read. The device harness now emits its phase and bounded failure
+context as GitHub annotations while retaining every assertion and the real ten-minute
+wait. This provides diagnostic evidence without depending solely on downloadable
+artifacts. Final matching run results are in PR #8.

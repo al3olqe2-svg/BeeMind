@@ -90,7 +90,7 @@ fun TemporalToolOptions(level: ToolExpansionState, initial: Long?, state: Editor
         AlertDialog(onDismissRequest = { dialog = null }, title = { Text("الساعة والدقيقة") },
             text = { Box(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) { TimeInput(picker) } },
             confirmButton = { TextButton(onClick = {
-                draft = draft.local(local.toLocalDate(), LocalTime.of(picker.hour, picker.minute), zone, Instant.now()); dialog = null
+                draft = draft.chooseTime(local, picker.hour, picker.minute, zone, Instant.now()); dialog = null
             }) { Text("اختيار") } }, dismissButton = { TextButton(onClick = { dialog = null }, modifier = Modifier.testTag("appointment_dialog_cancel")) { Text("إلغاء") } })
     }
     if (dialog == "seal") {

@@ -29,6 +29,15 @@ class EditorToolsStateTest {
             assertEquals(14, Instant.ofEpochMilli(fixed.due!!).atZone(zone).hour)
         }
     }
+    @Test fun unchangedClockRetainsSecondsAndMillisWhileExplicitMinuteEditChangesThem() {
+        val due = Instant.parse("2026-01-02T15:20:35.123Z").toEpochMilli()
+        val zone = ZoneId.of("Asia/Riyadh")
+        val wall = Instant.ofEpochMilli(due).atZone(zone).toLocalDateTime()
+        val draft = AppointmentDraft(due)
+        assertEquals(due, draft.chooseTime(wall, 18, 20, zone, now).due)
+        assertEquals(due, draft.chooseTime(wall, 18, 20, zone, now).initial)
+        assertEquals(Instant.parse("2026-01-02T15:21:00Z").toEpochMilli(), draft.chooseTime(wall, 18, 21, zone, now).due)
+    }
     @Test fun categorySessionsAreIndependentAndBackAlwaysHasOneDestination() {
         val reminder = AppointmentDraft(123L).plusFive(now)
         val resurface = AppointmentDraft(456L)

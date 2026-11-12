@@ -242,9 +242,11 @@ class NotesExperienceTest {
         closeTraits(); exitEditorHome()
         assertEquals(saved.reminder!!.dueAt, runBlocking { repository.getNote(saved.id)!!.reminder!!.dueAt })
         assertEquals(saved.reminder!!.generation, runBlocking { repository.getNote(saved.id)!!.reminder!!.generation })
-        // The direct management path is also used by the locked capsule cover.
+        // Reconfirming the clock's unchanged visible hour/minute must not zero its hidden seconds.
         openNote(saved.id); compose.onNodeWithContentDescription("تعديل الملاحظة").performClick(); waitForTag("editor_body")
         temporal("tool_reminder")
+        compose.onNodeWithTag("appointment_time").performClick()
+        compose.onNodeWithText("اختيار").performClick()
         compose.onNodeWithText("اعتماد").performScrollTo().performClick()
         compose.waitUntil(15000) { compose.onAllNodesWithText("+5").fetchSemanticsNodes().isEmpty() }
         closeTraits(); exitEditorHome()

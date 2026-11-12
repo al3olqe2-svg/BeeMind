@@ -25,5 +25,10 @@ data class AppointmentDraft(
         catch (_: com.beemind.personal.domain.ReminderTimeException) {
             copy(localValue = LocalDateTime.of(date, time), reference = null, minutes = 0, error = "الوقت ماضٍ، أو غير موجود/ملتبس بسبب التوقيت الصيفي. اختر وقتًا آخر.")
         }
+    /** The clock only displays hour/minute. Reconfirming those must retain hidden precision. */
+    fun chooseTime(wall: LocalDateTime, hour: Int, minute: Int, zone: ZoneId, now: Instant): AppointmentDraft {
+        val chosen = if (hour == wall.hour && minute == wall.minute) wall.toLocalTime() else LocalTime.of(hour, minute)
+        return local(wall.toLocalDate(), chosen, zone, now)
+    }
     fun valid(now: Instant) = error == null && due?.let { runCatching { ReminderTimes.future(it, now) }.isSuccess } == true
 }
