@@ -43,7 +43,7 @@ class WallpaperExperienceTest {
         }
     }
     private fun synthetic(name: String): ByteArray {
-        if (name == "coast") return javaClass.getResourceAsStream("/r4-coast.jpg")!!.use { it.readBytes() }
+        if (name in listOf("coast", "portrait")) return javaClass.getResourceAsStream("/r4-$name.jpg")!!.use { it.readBytes() }
         val bitmap = Bitmap.createBitmap(600, 1000, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap); val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         when (name) {

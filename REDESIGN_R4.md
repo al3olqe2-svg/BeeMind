@@ -120,16 +120,15 @@ animation scale. Physical TalkBack/low-end smoothness require phone verification
 
 ## Visual QA and automated results
 Executed results and opened screenshot evidence are recorded below after verification.
-The fixtures use a test-only public Unsplash coastal photograph plus synthetic
-sea/light/dark/portrait/detail images, never private images. Fixture provenance is
+The fixtures use test-only public Unsplash coast/portrait photographs plus synthetic
+sea/light/dark/detail images, never private images. Fixture provenance is
 recorded in `app/src/test/resources/README.md`.
 Native API 29/34 CI retains prior temporal, reminder, real ten-minute Snooze, Done,
 autosave/recovery, Room migrations, wallpaper sessions and FNV regressions, adding
 `ReadingR4DeviceTest` and shared-backdrop home rendering.
 
 ## Known limitations
-No local KVM device is attached; native tests execute in GitHub Actions. Synthetic
-portrait fixtures are illustrations, not real photos; phone photo/provider variations
+No local KVM device is attached; native tests execute in GitHub Actions. Public test photographs and synthetic fixtures cover material review; phone photo/provider variations
 and physical TalkBack/limited-GPU performance remain owner acceptance. Temporary
 signing stays non-upgrade-guaranteed unless certificates match; never remove an
 installed data-bearing copy to fix a signature mismatch. No claim of encryption,
@@ -165,7 +164,7 @@ from native Android HWUI and from physical-phone acceptance.
 | Requested scene | Evidence under app/build/reports/screenshots |
 |---|---|
 | Photographic sea, blur 0 / 50 / 100 | r1-coast-blur-0 / 50 / 100.png |
-| Light / dark / person-like / busy backgrounds | r1-bright / dark / portrait / detail.png |
+| Light / dark / portrait photo / busy backgrounds | r1-bright / dark / portrait / detail.png |
 | Normal beside Glow / Anger; both expressions | r1-coast-blur-0.png, r2-sea.png |
 | Locked home capsule | r1-coast-blur-0.png, r2-sea.png |
 | Closed editor glass tools | r3-normal-empty.png |

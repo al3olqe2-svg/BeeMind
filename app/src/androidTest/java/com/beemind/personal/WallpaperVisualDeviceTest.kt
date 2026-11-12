@@ -56,7 +56,11 @@ class WallpaperVisualDeviceTest {
                         canvas.drawRect(x.toFloat(),y.toFloat(),x+20f,y+20f,paint)
                     }
                     val synthetic = ByteArrayOutputStream().use { out -> bitmap.compress(Bitmap.CompressFormat.PNG,100,out); bitmap.recycle(); out.toByteArray() }
-                    val bytes = if (scene.startsWith("coast-")) instrument.context.assets.open("r4-coast.jpg").use { it.readBytes() } else synthetic
+                    val bytes = when {
+                        scene.startsWith("coast-") -> instrument.context.assets.open("r4-coast.jpg").use { it.readBytes() }
+                        scene == "portrait" -> instrument.context.assets.open("r4-portrait.jpg").use { it.readBytes() }
+                        else -> synthetic
+                    }
                     val id = repo.importImage { ByteArrayInputStream(bytes) }; repo.pin(id)
                     repo.setBlur(if (scene.startsWith("coast-")) scene.substringAfter("coast-").toInt() else 0)
                     images.load(repo.file(id),repo.state.value.blur)
