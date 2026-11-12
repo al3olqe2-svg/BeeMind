@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
 import com.beemind.personal.domain.ExpressiveTrait
 import com.beemind.personal.ui.theme.BeeDesign
@@ -60,14 +61,18 @@ fun Modifier.homeCardMaterial(trait: ExpressiveTrait, locked: Boolean) = drawWit
     }
 }
 
-/** A feathered veil follows only the preview's measured area, leaving luminous glass exposed. */
+/** Elliptical diffusion protects the measured preview without introducing a label-shaped panel. */
 fun Modifier.homePreviewVeil(trait: ExpressiveTrait) = if (trait == ExpressiveTrait.NONE) this else drawWithCache {
-    val feather = 10.dp.toPx()
-    val veil = Brush.verticalGradient(
-        0f to Color.Transparent, .15f to Color(0x6B202432), .85f to Color(0x6B202432), 1f to Color.Transparent,
-        startY = -feather, endY = size.height + feather)
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val rx = size.width.coerceAtLeast(1f) * .95f
+    val ry = size.height * .95f + 20.dp.toPx()
+    val veil = Brush.radialGradient(
+        0f to Color(0x7A202432), .65f to Color(0x7A202432), 1f to Color.Transparent,
+        center = Offset.Zero, radius = 1f)
     onDrawBehind {
-        drawRoundRect(veil, Offset(-4.dp.toPx(), -feather),
-            Size(size.width + 8.dp.toPx(), size.height + feather * 2), CornerRadius(10.dp.toPx()))
+        withTransform({
+            translate(center.x, center.y)
+            scale(rx, ry, pivot = Offset.Zero)
+        }) { drawCircle(veil, radius = 1f, center = Offset.Zero) }
     }
 }
