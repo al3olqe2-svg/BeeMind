@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.beemind.personal.wallpaper.*
 
 private data class GlassBackdrop(val image: ImageBitmap, val origin: Offset, val size: IntSize)
@@ -49,8 +50,12 @@ fun Modifier.frostedWallpaper(): Modifier {
         onDrawBehind {
             backdrop?.let {
                 clipPath(path) {
-                    val offset = it.origin - position
-                    translate(offset.x, offset.y) { drawImage(it.image, dstSize = it.size) }
+                    // Match Image's ContentScale.Crop even in unusually wide/narrow windows.
+                    val scale = maxOf(it.size.width.toFloat() / it.image.width, it.size.height.toFloat() / it.image.height)
+                    val scaled = IntSize((it.image.width * scale).roundToInt(), (it.image.height * scale).roundToInt())
+                    val crop = Offset((it.size.width - scaled.width) / 2f, (it.size.height - scaled.height) / 2f)
+                    val offset = it.origin - position + crop
+                    translate(offset.x, offset.y) { drawImage(it.image, dstSize = scaled) }
                 }
             }
         }

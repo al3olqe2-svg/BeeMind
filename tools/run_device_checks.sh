@@ -28,6 +28,12 @@ else
         adb exec-out run-as com.beemind.personal cat "files/r3-native-$scene.png" > "app/build/reports/ui-device/r3-$scene.png" || true
       done
     fi
+    if [[ "$test" == ReadingR4DeviceTest ]]; then
+      mkdir -p app/build/reports/ui-device
+      for scene in reading-long selection inline-two management reading-glow reading-anger reading-locked; do
+        adb exec-out run-as com.beemind.personal cat "files/r4-native-$scene.png" > "app/build/reports/ui-device/r4-$scene.png" || true
+      done
+    fi
     grep -q 'OK (1 test)' "$output"
   done
   mkdir -p app/build/reports/ui-device

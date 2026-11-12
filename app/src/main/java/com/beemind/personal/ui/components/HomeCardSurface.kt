@@ -59,3 +59,15 @@ fun Modifier.homeCardMaterial(trait: ExpressiveTrait, locked: Boolean) = drawWit
             alpha = if (glow || anger) .95f else .7f)
     }
 }
+
+/** A feathered veil follows only the preview's measured area, leaving luminous glass exposed. */
+fun Modifier.homePreviewVeil(trait: ExpressiveTrait) = if (trait == ExpressiveTrait.NONE) this else drawWithCache {
+    val feather = 10.dp.toPx()
+    val veil = Brush.verticalGradient(
+        0f to Color.Transparent, .15f to Color(0x6B202432), .85f to Color(0x6B202432), 1f to Color.Transparent,
+        startY = -feather, endY = size.height + feather)
+    onDrawBehind {
+        drawRoundRect(veil, Offset(-4.dp.toPx(), -feather),
+            Size(size.width + 8.dp.toPx(), size.height + feather * 2), CornerRadius(10.dp.toPx()))
+    }
+}

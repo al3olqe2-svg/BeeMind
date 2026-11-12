@@ -2,6 +2,7 @@ package com.beemind.personal
 
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -26,6 +27,7 @@ class ReadingR4DeviceTest {
     @Test fun nativeReadingInlineRelationshipsLiveRemovalAndLockedPrivacy() {
         val instrument = InstrumentationRegistry.getInstrumentation()
         val context = instrument.targetContext
+        compose.runOnUiThread { compose.activity.enableEdgeToEdge() }
         val db = Room.inMemoryDatabaseBuilder(context,BeeMindDatabase::class.java).build()
         val repo = RoomNotesRepository(db)
         val store = ViewModelStore()
@@ -63,8 +65,22 @@ class ReadingR4DeviceTest {
             compose.onNodeWithTag("reading_chunk_0").performTouchInput { longClick(word) }
             instrument.waitForIdleSync()
             capture("selection")
-            androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText(
-                context.getString(android.R.string.copy))).perform(androidx.test.espresso.action.ViewActions.click())
+            // Floating selection toolbars are non-focusable platform windows, outside
+            // Espresso's default application root. Exercise their real accessibility action.
+            val automation = instrument.uiAutomation
+            val service = automation.serviceInfo
+            service.flags = service.flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            automation.serviceInfo = service
+            var copyNode: android.view.accessibility.AccessibilityNodeInfo? = null
+            compose.waitUntil(5000) {
+                compose.waitForIdle()
+                val roots = automation.windows.mapNotNull { it.root } + listOfNotNull(automation.rootInActiveWindow)
+                copyNode = roots.asSequence().flatMap { it.findAccessibilityNodeInfosByText(context.getString(android.R.string.copy)).asSequence() }.firstOrNull()
+                copyNode != null
+            }
+            var action = checkNotNull(copyNode)
+            while (!action.isClickable && action.parent != null) action = action.parent
+            assertTrue("Copy action in Android's selection toolbar", action.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
             compose.runOnIdle {
                 val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                 val copied = clipboard.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()

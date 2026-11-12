@@ -39,6 +39,7 @@ internal fun NoteCard(note: NoteSummary, index: Int, onClick: () -> Unit) {
             // Cover only accepts an unlock timestamp; no title/preview can cross this boundary.
             if (note.locked) HomeCapsuleCover(checkNotNull(note.unlockAt))
             else if (note.preview.isNotBlank()) Text(note.preview, color = if (note.expressiveTrait == ExpressiveTrait.NONE) BeeDesign.ink else BeeDesign.darkForeground,
+                modifier = Modifier.homePreviewVeil(note.expressiveTrait),
                 style = MaterialTheme.typography.bodyMedium, maxLines = (size.previewLines - if (note.resurfaced) 1 else 0).coerceAtLeast(2), overflow = TextOverflow.Ellipsis)
         }
     }

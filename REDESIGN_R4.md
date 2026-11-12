@@ -96,6 +96,8 @@ light concentrated opposite the upper edge. It is not a red spectrum clone.
 External aura stroke alphas rise from .045/.09/.23 to .22/.38/.68; internal light
 from .30 to .62. Three bounded layers retain an edge rather than pulsing. Aura extends
 4dp into existing 12dp gutters, so geometry and neighboring text stay protected.
+A feathered contrast veil follows only the measured expressive preview text area;
+bright color/reflection remains exposed around it rather than darkening the whole card.
 The FNV-1a sizing, 140/185/234dp minima, 3/5/7-line previews and order are untouched.
 
 ## Editor glass controls
@@ -132,3 +134,53 @@ and physical TalkBack/limited-GPU performance remain owner acceptance. Temporary
 signing stays non-upgrade-guaranteed unless certificates match; never remove an
 installed data-bearing copy to fix a signature mismatch. No claim of encryption,
 cloud backup, export or Stage 6 implementation is made.
+
+### Executed local verification — 12 November 2026
+JDK 17.0.21 / SDK 35, with trusted environment CA:
+`./gradlew --no-daemon --max-workers=2 :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`
+completed successfully: **139 tests, zero failures/errors/skips; lint: no issues.**
+All prior 131 executions remain. New checks cover v1→v2 wallpaper migration on API
+26/34, persistence/pin/original retention, exact zero/sharp pixel boundaries, increasing
+spread at 25/50/75/100 and old-minimum equivalence; reading/links/large fonts/privacy,
+return-position restoration and failed unlink/delete retry behavior.
+
+The reading anchor is held outside the loading branch. When returning to a scrolled
+article, a derived Boolean prevents temporary missing footer items from clamping the
+saved scroll offset while fresh safe Room projections arrive. No stale unlocked
+preview is retained to accomplish restoration. Window-aligned frost also applies
+centered ContentScale.Crop in extreme aspect ratios, matching the wallpaper image.
+
+The native fixture exercises real selection and clipboard via the floating Android
+context toolbar, which is outside Espresso's default focused application root. It
+uses UiAutomation for that platform action. The editor fixture uses production-style
+edge-to-edge layout and explicitly waits for IME visibility before tool captures.
+No new production or test dependency is needed for these checks. Matching native
+API 29/34 results, workflow and artifact references are recorded in Draft PR #9:
+https://github.com/al3olqe2-svg/BeeMind/pull/9.
+
+### Opened visual evidence
+Actual rendered PNGs were opened, not merely generated. Local JVM renders are distinct
+from native Android HWUI and from physical-phone acceptance.
+
+| Requested scene | Evidence under app/build/reports/screenshots |
+|---|---|
+| Photographic sea, blur 0 / 50 / 100 | r1-coast-blur-0 / 50 / 100.png |
+| Light / dark / person-like / busy backgrounds | r1-bright / dark / portrait / detail.png |
+| Normal beside Glow / Anger; both expressions | r1-coast-blur-0.png, r2-sea.png |
+| Locked home capsule | r1-coast-blur-0.png, r2-sea.png |
+| Closed editor glass tools | r3-normal-empty.png |
+| Four primary tools | r3-primary.png |
+| Normal / Glow / Anger swatches | r3-expressive.png |
+| Appointment tools and dialogs | r3-reminder-pending / date / clock.png |
+| Tools over Glow / Anger | r3-GLOW / ANGER.png |
+| Normal / Glow / Anger reading | r4-reading-normal / glow / anger.png |
+| Long article and footer with two linked cards | r4-reading-normal-long / reading-inline-two.png |
+| Compact link manager | r4-threads-management.png |
+| Locked reading cover / scaled reading | r4-reading-locked / reading-large-font.png |
+
+Downloaded and opened native API 34 editor HWUI captures as well (including actual
+keyboard visibility in Glow/Anger and the primary/closed tool states). The initial
+native fixture's IME-named captures could precede IME arrival; the final fixture now
+waits for actual insets and asserts the tool target is displayed. Final native
+capture artifacts are linked from PR #9. Physical TalkBack, OEM keyboard variations
+and low-end scrolling are explicitly not claimed as performed.
