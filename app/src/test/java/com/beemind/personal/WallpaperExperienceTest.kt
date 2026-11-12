@@ -43,6 +43,7 @@ class WallpaperExperienceTest {
         }
     }
     private fun synthetic(name: String): ByteArray {
+        if (name in listOf("coast", "portrait")) return javaClass.getResourceAsStream("/r4-$name.jpg")!!.use { it.readBytes() }
         val bitmap = Bitmap.createBitmap(600, 1000, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap); val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         when (name) {
@@ -65,15 +66,27 @@ class WallpaperExperienceTest {
         runBlocking {
             app.notesRepository.save("r1-a", "", "أفكار تحتاج إلى مساحة هادئة. ".repeat(9), true, "r1-a")
             app.notesRepository.save("r1-b", "", "تفاصيل صغيرة تستحق أن نتذكرها.", true, "r1-b")
+            app.notesRepository.save("r4-glow", "", "ضوءٌ يتسع لفكرة جديدة.", true, "r4-g", com.beemind.personal.domain.ExpressiveTrait.GLOW)
+            app.notesRepository.save("r4-capsule", "", "PRIVATE", true, "r4-c", temporalEdit = com.beemind.personal.domain.TemporalEdit(sealUntil = System.currentTimeMillis() + 3600000))
+            app.notesRepository.save("r4-anger", "", "أكتب كي أمضي بخفة.", true, "r4-a", com.beemind.personal.domain.ExpressiveTrait.ANGER)
         }
         waitTag("note_r1-a"); screenshot("fallback")
-        for (name in listOf("sea", "bright", "dark", "portrait", "detail")) {
+        for (name in listOf("coast", "sea", "bright", "dark", "portrait", "detail")) {
+            runBlocking { app.wallpapers.setBlur(0) }
             val id = runBlocking { app.wallpapers.importImage { ByteArrayInputStream(synthetic(name)) }.also { app.wallpapers.pin(it) } }
             waitTag("wallpaper_ready_$id")
             compose.onNodeWithTag("note_r1-a").assertIsDisplayed()
             // Wait for this exact cached processing task before capturing the composed frame.
             runBlocking { app.wallpaperImages.load(app.wallpapers.file(id), 65, 393f / 851f) }
             compose.waitForIdle(); screenshot(name)
+            if (name == "sea" || name == "coast") for (blur in listOf(0,50,100)) {
+                runBlocking { app.wallpapers.setBlur(blur) }
+                compose.waitUntil(15000) {
+                    org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(150, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    app.wallpaperImages.cachedWallpaper(id,blur,393f/851f,851) != null
+                }
+                compose.waitForIdle(); screenshot("$name-blur-$blur")
+            }
         }
         compose.onNodeWithTag("wallpaper_settings_open").performClick(); waitTag("wallpaper_settings")
         compose.onNodeWithText("شدة الضبابية").assertIsDisplayed()

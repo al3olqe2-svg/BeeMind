@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.7.2-r3"
+        versionName = "0.7.3-r4"
     }
     signingConfigs {
         if (hasSigning) create("persistentTest") {
@@ -48,6 +48,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     sourceSets.getByName("androidTest").assets.srcDir("schemas")
+    sourceSets.getByName("androidTest").assets.srcDir("src/test/resources")
     buildFeatures { compose = true }
     testOptions { unitTests.isIncludeAndroidResources = true }
     lint {

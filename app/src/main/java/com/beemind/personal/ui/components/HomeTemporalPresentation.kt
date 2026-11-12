@@ -38,8 +38,8 @@ fun HomeCapsuleCover(unlockAt: Long) {
 }
 
 @Composable
-fun HomeResurfaceIndicator() {
-    Text("↗ عادت للواجهة", color = HomeMaterials.returned, style = MaterialTheme.typography.labelSmall,
+fun HomeResurfaceIndicator(onLight: Boolean = false) {
+    Text("↗ عادت للواجهة", color = if (onLight) androidx.compose.ui.graphics.Color(0xFF345E53) else HomeMaterials.returned, style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.testTag("home_resurfaced").background(HomeMaterials.returned.copy(alpha = .08f), BeeDesign.button)
             .padding(horizontal = 7.dp, vertical = 3.dp))
 }

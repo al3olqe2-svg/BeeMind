@@ -70,7 +70,7 @@ class WallpaperRepositoryTest {
     @Test fun blurIsClampedAndDurable() = runBlocking {
         repo.setBlur(82); repo = WallpaperRepository(directory, prefs); repo.initialize()
         assertEquals(82, repo.state.value.blur)
-        repo.setBlur(-1); assertEquals(20, repo.state.value.blur)
+        repo.setBlur(-1); assertEquals(0, repo.state.value.blur)
         repo.setBlur(999); assertEquals(100, repo.state.value.blur)
     }
     @Test fun corruptUnreadableAndPartialCopyNeverEnterCollection() = runBlocking {
@@ -90,7 +90,7 @@ class WallpaperRepositoryTest {
         assertTrue(maxOf(decoded.width, decoded.height) <= 720); decoded.recycle()
         val processor = WallpaperImages()
         val rendered = processor.load(repo.file(id), 65)!!
-        assertTrue(maxOf(rendered.width, rendered.height) <= 720)
+        assertTrue(maxOf(rendered.width, rendered.height) <= 1440)
         assertSame(rendered, processor.load(repo.file(id), 65))
         val thumbnail = processor.load(repo.file(id))!!
         assertTrue(thumbnail.allocationByteCount <= 640 * 280 * 4)
@@ -118,10 +118,10 @@ class WallpaperRepositoryTest {
         canvas.drawRect(180f,0f,360f,720f,android.graphics.Paint().apply { color = Color.WHITE })
         val bytes = ByteArrayOutputStream().use { out -> bitmap.compress(Bitmap.CompressFormat.PNG,100,out); bitmap.recycle(); out.toByteArray() }
         val id = add(bytes); val images = WallpaperImages()
-        val soft = images.load(repo.file(id),20)!!
-        val strong = images.load(repo.file(id),100)!!
-        assertTrue(Color.red(strong.getPixel(160,360)) > Color.red(soft.getPixel(160,360)))
-        assertTrue(Color.red(strong.getPixel(200,360)) < Color.red(soft.getPixel(200,360)))
+        val soft = images.load(repo.file(id),0, edge = 720)!!
+        val strong = images.load(repo.file(id),100, edge = 720)!!
+        assertTrue(Color.red(strong.getPixel(175,360)) > Color.red(soft.getPixel(175,360)))
+        assertTrue(Color.red(strong.getPixel(185,360)) < Color.red(soft.getPixel(185,360)))
         assertArrayEquals(bytes,repo.file(id).readBytes())
     }
     @Test fun missingFilesAndInterruptedImportsRecoverWithoutDanglingPin() = runBlocking {

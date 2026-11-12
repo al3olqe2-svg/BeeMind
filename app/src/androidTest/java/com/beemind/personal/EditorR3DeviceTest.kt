@@ -2,6 +2,7 @@ package com.beemind.personal
 
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -32,9 +33,12 @@ class EditorR3DeviceTest {
         val repo = RoomNotesRepository(db)
         val store = ViewModelStore()
         lateinit var vm: EditorViewModel
-        compose.runOnUiThread { vm = EditorViewModel(repo, "r3-native", null); store.put("editor", vm) }
+        compose.runOnUiThread { compose.activity.enableEdgeToEdge(); vm = EditorViewModel(repo, "r3-native", null); store.put("editor", vm) }
         fun capture(name: String) {
             compose.waitForIdle()
+            instrumentation.waitForIdleSync()
+            Thread.sleep(500)
+            instrumentation.waitForIdleSync()
             val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
             File(context.filesDir, "r3-native-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()
@@ -47,6 +51,15 @@ class EditorR3DeviceTest {
             capture("normal-empty")
             val body = "هذه مساحة للأفكار، ولكل ما يستحق أن يُكتب.\n".repeat(30)
             compose.onNodeWithTag("editor_body").performTextInput(body)
+            compose.waitUntil(10000) {
+                var visible = false
+                compose.runOnIdle {
+                    visible = androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                        ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+                }
+                visible
+            }
+            compose.onNodeWithTag("editor_tools").assertIsDisplayed()
             capture("normal-long-ime")
             compose.onNodeWithTag("editor_tools").performClick(); capture("primary-ime")
             compose.onNodeWithTag("tool_expressive").performClick()

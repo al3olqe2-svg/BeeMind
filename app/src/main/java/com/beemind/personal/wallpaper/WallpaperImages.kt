@@ -1,6 +1,7 @@
 package com.beemind.personal.wallpaper
 
 import android.graphics.*
+import kotlin.math.roundToInt
 import androidx.exifinterface.media.ExifInterface
 import androidx.core.graphics.createBitmap
 import android.util.LruCache
@@ -14,43 +15,43 @@ import kotlinx.coroutines.sync.withLock
 class WallpaperImages {
     private val worker = Dispatchers.IO
     private val processing = Mutex()
-    private val cache = object : LruCache<String, Bitmap>(12 * 1024 * 1024) {
+    private val maximumEdge = if (Runtime.getRuntime().maxMemory() < 192L * 1024 * 1024) 1080 else 1920
+    private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 12).coerceIn(8L * 1024 * 1024, 24L * 1024 * 1024).toInt()) {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
-    private fun key(name: String, blur: Int?, aspect: Float) =
-        "$name:$blur:${(aspect.coerceIn(.4f, 2.5f) * 100).toInt()}"
-    /** Originals are immutable UUID files. This synchronized cache lookup performs no disk IO. */
-    fun cachedWallpaper(id: String, blur: Int, aspect: Float): Bitmap? = cache.get(key("$id.image", blur, aspect))
-    suspend fun load(file: File, blur: Int? = null, aspect: Float = .5f): Bitmap? = withContext(worker) { processing.withLock {
-        val ratio = aspect.coerceIn(.4f, 2.5f)
-        val key = key(file.name, blur, ratio)
+    private fun key(name: String, blur: Int?, aspect: Float, edge: Int, frost: Boolean) =
+        "$name:${blur?.let { radiusAt720(it) }}:${(aspect.coerceIn(.3f, 3f) * 100).toInt()}:$edge:$frost"
+    fun cachedWallpaper(id: String, blur: Int, aspect: Float, edge: Int = 1440): Bitmap? =
+        cache.get(key("$id.image", blur, aspect, edge.coerceIn(720, maximumEdge), false))
+    suspend fun load(file: File, blur: Int? = null, aspect: Float = .5f, edge: Int = 1440,
+        frost: Boolean = false): Bitmap? = withContext(worker) { processing.withLock {
+        val ratio = aspect.coerceIn(.3f, 3f)
+        val boundedEdge = if (frost) 720 else edge.coerceIn(720, maximumEdge)
+        val key = key(file.name, blur, ratio, boundedEdge, frost)
         cache.get(key)?.let { return@withLock it }
-        val source = decode(file, 1440) ?: return@withLock null
-        val result = run {
-            // Crop before blur; cap output at 720 on the long edge, then smoothly upscale.
-            val width = if (blur == null) 640 else if (ratio < 1) (720 * ratio).toInt() else 720
-            val height = if (blur == null) 280 else if (ratio < 1) 720 else (720 / ratio).toInt()
-            val out = createBitmap(width, height)
+        val source = decode(file, if (blur == null) 1440 else minOf(boundedEdge * 2, if (maximumEdge == 1080) 1440 else 2048)) ?: return@withLock null
+        val width = if (blur == null) 640 else if (ratio < 1) (boundedEdge * ratio).toInt() else boundedEdge
+        val height = if (blur == null) 280 else if (ratio < 1) boundedEdge else (boundedEdge / ratio).toInt()
+        val result = createBitmap(width, height)
+        try {
             val scale = maxOf(width.toFloat() / source.width, height.toFloat() / source.height)
             val dx = (width - source.width * scale) / 2f
             val dy = (height - source.height * scale) / 2f
-            val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-            // Compress highlights and saturation consistently across very different originals.
-            if (blur != null) {
-                val saturation = ColorMatrix().apply { setSaturation(.72f) }
-                saturation.postConcat(ColorMatrix(floatArrayOf(
-                    .72f,0f,0f,0f,2f, 0f,.72f,0f,0f,3f, 0f,0f,.72f,0f,7f, 0f,0f,0f,1f,0f)))
-                paint.colorFilter = ColorMatrixColorFilter(saturation)
-            }
-            Canvas(out).drawBitmap(source, null, RectF(dx, dy, dx + source.width * scale, dy + source.height * scale), paint)
-            source.recycle()
-            if (blur != null) blur(out, 3 + blur.coerceIn(20, 100) * 17 / 100)
-            out
-        }
+            Canvas(result).drawBitmap(source, null, RectF(dx, dy, dx + source.width * scale, dy + source.height * scale), Paint(Paint.FILTER_BITMAP_FLAG))
+        } finally { source.recycle() }
+        // Independent local diffusion for glass; background zero bypasses blur entirely.
+        val radius = if (frost) 16 else blur?.let { if (it <= 0) 0 else (radiusAt720(it) * boundedEdge / 720f).roundToInt().coerceAtLeast(1) } ?: 0
+        if (radius > 0) blur(result, radius)
         cache.put(key, result)
         result
     } }
     companion object {
+        /** Reference pixels on R1's 720px derivative. Old minimum was integer radius 6. */
+        fun radiusAt720(value: Int): Float {
+            val t = value.coerceIn(0, 100) / 100f
+            return 6f * t * t
+        }
+
         /** Decode dimensions first. Power-of-two sampling bounds both dimensions and memory. */
         fun decode(file: File, maxEdge: Int): Bitmap? {
             return try {
@@ -81,6 +82,7 @@ class WallpaperImages {
         }
         /** Three separable box passes approximate a smooth Gaussian in O(pixels), at bounded size. */
         internal fun blur(bitmap: Bitmap, radius: Int) {
+            if (radius <= 0) return
             val w = bitmap.width; val h = bitmap.height
             var input = IntArray(w * h); var output = IntArray(w * h)
             bitmap.getPixels(input, 0, w, 0, 0, w, h)

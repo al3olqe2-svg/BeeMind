@@ -20,7 +20,7 @@ data class WallpaperState(
     val ids: List<String> = emptyList(),
     val currentId: String? = null,
     val pinnedId: String? = null,
-    val blur: Int = 65,
+    val blur: Int = 35,
     val loaded: Boolean = false,
 )
 
@@ -44,8 +44,11 @@ class WallpaperRepository(private val directory: File, private val preferences: 
             it.matches(Regex("[a-f0-9-]{36}")) && file(it).isFile
         }
         val pinned = json.optString("pin").takeIf { it in ids }
-        mutable.value = WallpaperState(ids, pinned ?: json.optString("current").takeIf { it in ids } ?: ids.firstOrNull(),
-            pinned, json.optInt("blur", 65).coerceIn(20, 100), true)
+        val loaded = WallpaperState(ids, pinned ?: json.optString("current").takeIf { it in ids } ?: ids.firstOrNull(),
+            pinned, if (!json.has("blur")) 35 else if (json.optInt("blurVersion", 1) < 2) 100
+            else json.optInt("blur", 35).coerceIn(0, 100), true)
+        // Publish the v2 marker atomically with the migrated value. Images and selections survive.
+        if (json.has("blur") && json.optInt("blurVersion", 1) < 2) save(loaded) else mutable.value = loaded
         // Incomplete imports and files orphaned by a process death are safe to reclaim.
         directory.listFiles()?.filter { it.name !in ids.map { id -> "$id.image" }.toSet() }?.forEach { it.delete() }
     }
@@ -53,7 +56,7 @@ class WallpaperRepository(private val directory: File, private val preferences: 
     @android.annotation.SuppressLint("UseKtx")
     private fun save(next: WallpaperState) {
         val json = JSONObject().put("ids", JSONArray(next.ids)).put("current", next.currentId)
-            .put("pin", next.pinnedId).put("blur", next.blur)
+            .put("pin", next.pinnedId).put("blur", next.blur).put("blurVersion", 2)
         if (!preferences.edit().putString("state", json.toString()).commit()) throw IOException("Preferences write failed")
         mutable.value = next
     }
@@ -108,7 +111,7 @@ class WallpaperRepository(private val directory: File, private val preferences: 
         file(id).delete()
     } }
     suspend fun setBlur(value: Int) = withContext(Dispatchers.IO) { mutex.withLock {
-        load(); save(mutable.value.copy(blur = value.coerceIn(20, 100)))
+        load(); save(mutable.value.copy(blur = value.coerceIn(0, 100)))
     } }
 }
 

@@ -61,7 +61,7 @@ fun WallpaperSettingsScreen(vm: WallpaperViewModel, onBack: () -> Unit) {
                     Text("شدة الضبابية", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                     Text("${slider.roundToInt()}٪", color = BeeDesign.secondary)
                 }
-                Slider(value = slider, onValueChange = { slider = it }, valueRange = 20f..100f,
+                Slider(value = slider, onValueChange = { slider = it }, valueRange = 0f..100f,
                     onValueChangeFinished = { vm.blur(slider.roundToInt()) }, enabled = state.loaded,
                     modifier = Modifier.fillMaxWidth().testTag("wallpaper_blur").semantics { contentDescription = "شدة ضبابية الخلفية" })
             }

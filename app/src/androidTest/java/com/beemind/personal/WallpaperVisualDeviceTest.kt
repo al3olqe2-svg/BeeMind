@@ -14,6 +14,7 @@ import com.beemind.personal.domain.*
 import com.beemind.personal.ui.notes.*
 import com.beemind.personal.ui.theme.*
 import com.beemind.personal.ui.wallpaper.WallpaperBackground
+import com.beemind.personal.ui.wallpaper.WallpaperGlassHost
 import com.beemind.personal.wallpaper.*
 import java.io.*
 import kotlinx.coroutines.runBlocking
@@ -40,7 +41,7 @@ class WallpaperVisualDeviceTest {
             NoteSummary("long", null, "أفكار هادئة ومساحة للكتابة. ".repeat(20), 1, 1))
         try {
             repo.initialize()
-            for (scene in listOf("fallback", "sea", "bright", "dark", "portrait", "detail")) {
+            for (scene in listOf("fallback", "coast-0", "coast-50", "coast-100", "sea", "bright", "dark", "portrait", "detail")) {
                 if (scene != "fallback") {
                     val bitmap = Bitmap.createBitmap(600,1000,Bitmap.Config.ARGB_8888)
                     val canvas = Canvas(bitmap); val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -54,18 +55,24 @@ class WallpaperVisualDeviceTest {
                         paint.color = Color.rgb((x*17+y)%256,(x+y*13)%256,(x*7+y*3)%256)
                         canvas.drawRect(x.toFloat(),y.toFloat(),x+20f,y+20f,paint)
                     }
-                    val bytes = ByteArrayOutputStream().use { out -> bitmap.compress(Bitmap.CompressFormat.PNG,100,out); bitmap.recycle(); out.toByteArray() }
+                    val synthetic = ByteArrayOutputStream().use { out -> bitmap.compress(Bitmap.CompressFormat.PNG,100,out); bitmap.recycle(); out.toByteArray() }
+                    val bytes = when {
+                        scene.startsWith("coast-") -> instrument.context.assets.open("r4-coast.jpg").use { it.readBytes() }
+                        scene == "portrait" -> instrument.context.assets.open("r4-portrait.jpg").use { it.readBytes() }
+                        else -> synthetic
+                    }
                     val id = repo.importImage { ByteArrayInputStream(bytes) }; repo.pin(id)
-                    images.load(repo.file(id),65)
+                    repo.setBlur(if (scene.startsWith("coast-")) scene.substringAfter("coast-").toInt() else 0)
+                    images.load(repo.file(id),repo.state.value.blur)
                 }
                 val sceneState = repo.state.value
                 ActivityScenario.launch<ComponentActivity>(Intent(context, ComponentActivity::class.java)).use { scenario ->
                     scenario.onActivity { activity -> activity.setContent {
-                        BeeMindTheme { AtmosphericTheme {
+                        BeeMindTheme { WallpaperGlassHost(sceneState, repo, images) { AtmosphericTheme {
                             HomeScreen(HomeState.Ready(notes,null), {}, {}, {}, {}, wallpaper = {
                                 WallpaperBackground(sceneState, repo, images, Modifier.fillMaxSize())
                             })
-                        } }
+                        } } }
                     } }
                     instrument.waitForIdleSync(); Thread.sleep(1500); instrument.waitForIdleSync()
                     val screenshot = checkNotNull(instrument.uiAutomation.takeScreenshot())

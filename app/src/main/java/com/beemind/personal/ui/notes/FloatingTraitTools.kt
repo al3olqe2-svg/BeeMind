@@ -39,22 +39,30 @@ internal fun MicroTool(label: String, icon: ImageVector? = null, text: String? =
         role = Role.Button
     }) {
         val glow = when (tag) {
-            "expressive_GLOW" -> Color(0xB3B78AFF)
-            "expressive_ANGER" -> Color(0xB3E43F51)
+            "expressive_GLOW" -> Color(0xD9B78AFF)
+            "expressive_ANGER" -> Color(0xE6EF476B)
             else -> Color.Transparent
         }
-        Box(Modifier.size(38.dp).drawWithCache {
+        Box(Modifier.size(38.dp).shadow(if (selected) 5.dp else 3.dp, CircleShape)
+            .background(brush ?: Brush.linearGradient(listOf(Color(0x55FFFFFF), Color(0x807E90AE), Color(0x40F6FAFF))), CircleShape).drawWithCache {
             val aura = Brush.radialGradient(listOf(glow, Color.Transparent), Offset(size.width / 2, size.height / 2), size.minDimension * .68f)
             val reflection = Brush.radialGradient(listOf(Color.White.copy(alpha = .6f), Color.Transparent),
                 Offset(size.width * .3f, size.height * .18f), size.width * .85f)
+            val rim = Brush.linearGradient(listOf(Color.White.copy(alpha = .95f), Color(0x4094A2B8), Color.White.copy(alpha = .8f)))
+            val innerShadow = Brush.radialGradient(listOf(Color.Transparent, Color(0x28627292)), radius = size.minDimension * .57f)
             onDrawWithContent {
                 if (glow != Color.Transparent) drawCircle(aura, size.minDimension * .68f)
+                drawCircle(innerShadow)
+                drawCircle(reflection)
+                drawCircle(rim, radius = size.minDimension / 2 - .7.dp.toPx(), style = androidx.compose.ui.graphics.drawscope.Stroke(.8.dp.toPx()))
+                drawArc(Color.White.copy(alpha = .78f), startAngle = 205f, sweepAngle = 88f, useCenter = false,
+                    topLeft = Offset(size.width * .10f, size.height * .10f),
+                    size = androidx.compose.ui.geometry.Size(size.width * .8f, size.height * .8f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(.7.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round))
                 drawContent()
-                if (brush != null) drawCircle(reflection)
             }
-        }.shadow(if (selected) 5.dp else 2.dp, CircleShape)
-            .background(brush ?: Brush.linearGradient(listOf(Color(0xFAFFFFFF), Color(0xDDE3E6EC))), CircleShape)
-            .border(if (selected) 1.5.dp else .8.dp, if (selected) BeeDesign.control else Color(0xCCB6BDC9), CircleShape),
+        }
+            .then(if (selected) Modifier.border(1.5.dp, BeeDesign.control, CircleShape) else Modifier),
             contentAlignment = Alignment.Center) {
             if (icon != null) Icon(icon, null, tint = BeeDesign.ink, modifier = Modifier.size(19.dp))
             if (text != null) Text(text, color = BeeDesign.ink, style = MaterialTheme.typography.labelMedium.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr))
@@ -95,7 +103,7 @@ fun FloatingTraitTools(level: ToolExpansionState, trait: ExpressiveTrait, indica
                     ExpressiveTrait.entries.forEach { value ->
                         val label = when(value) { ExpressiveTrait.NONE -> "عادي"; ExpressiveTrait.GLOW -> "الوهج"; ExpressiveTrait.ANGER -> "الغضب" }
                         val colors = when(value) {
-                            ExpressiveTrait.NONE -> listOf(Color(0xFFD9DDE3), Color(0xFFF9FAFC))
+                            ExpressiveTrait.NONE -> listOf(Color(0x709CAAC0), Color(0x70F9FAFC))
                             ExpressiveTrait.GLOW -> BeeDesign.glowColors
                             ExpressiveTrait.ANGER -> BeeDesign.angerColors
                         }

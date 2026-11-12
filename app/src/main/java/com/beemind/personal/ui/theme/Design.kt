@@ -42,7 +42,7 @@ object BeeDesign {
     val error = Color(0xFFAE2943)
     val disabled = Color(0xFF757B86)
     val disabledSurface = Color(0xFFE0E2E7)
-    val atmosphericOverlay = Color(0x70202639)
+    val atmosphericOverlay = Color(0x10202639)
     val scrim = Color(0x990D111B)
     // Compatibility aliases for existing editorial screens. Home uses explicit dark roles.
     val background = editorialBackground

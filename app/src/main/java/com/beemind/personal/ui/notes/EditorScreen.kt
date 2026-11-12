@@ -1,6 +1,7 @@
 package com.beemind.personal.ui.notes
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -69,7 +70,7 @@ fun EditorScreen(vm: EditorViewModel, state: EditorState, onBack: () -> Unit, on
             Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                BeeBack(::navigateBack, !state.busy)
+                MicroTool("رجوع", androidx.compose.material.icons.Icons.AutoMirrored.Outlined.ArrowBack, enabled = !state.busy, onClick = ::navigateBack)
                 if (state.busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 1.5.dp)
             }
             Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = BeeDesign.page)) {

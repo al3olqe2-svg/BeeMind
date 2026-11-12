@@ -59,7 +59,7 @@ class NotesExperienceTest {
     private fun home() { waitForTag("new_note") }
     private fun openNote(id: String) {
         waitForTag("note_$id"); compose.onNodeWithTag("note_$id").performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15000) { compose.onAllNodesWithTag("reading_more").fetchSemanticsNodes().isNotEmpty() }
     }
     private fun traits() { compose.onNodeWithTag("editor_tools").performClick() }
     private fun closeTraits() {
@@ -189,11 +189,11 @@ class NotesExperienceTest {
         assertEquals(1, runBlocking { repository.observeNotes().first().size })
         val edited = runBlocking { repository.getNote(first.id)!! }
         assertEquals(first.createdAt, edited.createdAt); assertEquals("تعديل محفوظ", edited.body)
-        openNote(first.id); compose.onNodeWithContentDescription("حذف الملاحظة").performClick()
+        openNote(first.id); compose.onNodeWithTag("reading_more").performClick(); compose.onNodeWithText("حذف الملاحظة").performClick()
         compose.onNodeWithText("حذف هذه الملاحظة؟").assertIsDisplayed()
         compose.onNodeWithText("إلغاء").performClick()
         compose.onNodeWithText("تعديل محفوظ").assertIsDisplayed()
-        compose.onNodeWithContentDescription("حذف الملاحظة").performClick()
+        compose.onNodeWithTag("reading_more").performClick(); compose.onNodeWithText("حذف الملاحظة").performClick()
         compose.onNodeWithText("حذف نهائي").performClick(); home()
         assertTrue(runBlocking { repository.observeNotes().first().isEmpty() })
     }
@@ -273,7 +273,7 @@ class NotesExperienceTest {
         closeTraits(); exitEditorHome()
         compose.onAllNodesWithText("نص محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
         val id = runBlocking { repository.observeNotes().first().single().id }
-        openNote(id); compose.onNodeWithContentDescription("تعديل الملاحظة").assertIsNotEnabled()
+        openNote(id); compose.onAllNodesWithContentDescription("تعديل الملاحظة").assertCountEquals(0)
         compose.onAllNodesWithText("نص محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
         screenshot("capsule-locked")
         runBlocking { ApplicationProvider.getApplicationContext<BeeMindApplication>().database.notesDao().seal(id, System.currentTimeMillis() - 1); repository.refreshTime() }
@@ -304,7 +304,7 @@ class NotesExperienceTest {
         compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("a", true).first().size == 1 } }
         compose.onNodeWithContentDescription("إغلاق اختيار الخيوط").performClick()
         waitForTag("thread_open_b"); compose.onNodeWithTag("thread_open_b").performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("نص ب").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15000) { compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText("نص ب", substring = false)).fetchSemanticsNodes().isNotEmpty() }
         threadPanel(); waitForTag("thread_open_a")
         compose.onNodeWithTag("thread_remove_a").performClick()
         compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("a", true).first().isEmpty() } }
@@ -325,8 +325,8 @@ class NotesExperienceTest {
         compose.waitUntil(15000) { runBlocking { repository.observeThreadNotes("plain", true).first().size == 1 } }
         compose.onNodeWithContentDescription("إغلاق اختيار الخيوط").performClick()
         waitForTag("thread_open_capsule"); compose.onNodeWithTag("thread_open_capsule").performClick()
-        compose.waitUntil(15000) { compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription("تعديل الملاحظة").assertIsNotEnabled()
+        compose.waitUntil(15000) { compose.onAllNodesWithText("كبسولة مغلقة").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithContentDescription("تعديل الملاحظة").assertCountEquals(0)
         compose.onAllNodesWithText("محجوب", substring = true, useUnmergedTree = true).assertCountEquals(0)
     }
 
@@ -393,13 +393,13 @@ class NotesExperienceTest {
         openNote("a")
         repeat(3) {
             threadPanel(); waitForTag("thread_open_b"); compose.onNodeWithTag("thread_open_b").performClick()
-            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى b").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(15000) { compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText("محتوى b", substring = false)).fetchSemanticsNodes().isNotEmpty() }
             threadPanel(); waitForTag("thread_open_a"); compose.onNodeWithTag("thread_open_a").performClick()
-            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى a").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(15000) { compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText("محتوى a", substring = false)).fetchSemanticsNodes().isNotEmpty() }
             back()
-            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى b").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(15000) { compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText("محتوى b", substring = false)).fetchSemanticsNodes().isNotEmpty() }
             back()
-            compose.waitUntil(15000) { compose.onAllNodesWithText("محتوى a").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(15000) { compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText("محتوى a", substring = false)).fetchSemanticsNodes().isNotEmpty() }
         }
         assertEquals(2, runBlocking { repository.observeThreadNotes("a", true).first().size })
     }
@@ -413,7 +413,7 @@ class NotesExperienceTest {
         openNote("a")
         val generation = runBlocking { repository.getNote("b")!!.reminder!!.generation }
         compose.runOnIdle { compose.activity.reminderOpen.value = "b" to generation }
-        compose.waitUntil(15000) { compose.onAllNodesWithText("هدف الإشعار").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15000) { compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText("هدف الإشعار", substring = false)).fetchSemanticsNodes().isNotEmpty() }
         threadPanel(); waitForTag("thread_open_a")
         compose.onAllNodesWithTag("thread_open_b").assertCountEquals(0)
         assertEquals(generation, runBlocking { repository.getNote("b")!!.reminder!!.generation })

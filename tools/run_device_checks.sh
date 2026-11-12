@@ -18,7 +18,7 @@ adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 if [[ "${UI_PROBE_ONLY:-false}" == true ]]; then
   python3 tools/ui_device_probe.py
 else
-  for test in TemporalDeviceTest ThreadsDeviceTest EditorDeviceTest EditorR3DeviceTest WallpaperDeviceTest WallpaperVisualDeviceTest; do
+  for test in TemporalDeviceTest ThreadsDeviceTest EditorDeviceTest EditorR3DeviceTest ReadingR4DeviceTest WallpaperDeviceTest WallpaperVisualDeviceTest; do
     phase="$test"
     output="${test}.txt"
     timeout 180 adb shell am instrument -w -r -e class "com.beemind.personal.$test" com.beemind.personal.test/androidx.test.runner.AndroidJUnitRunner | tee "$output"
@@ -28,16 +28,26 @@ else
         adb exec-out run-as com.beemind.personal cat "files/r3-native-$scene.png" > "app/build/reports/ui-device/r3-$scene.png" || true
       done
     fi
+    if [[ "$test" == ReadingR4DeviceTest ]]; then
+      mkdir -p app/build/reports/ui-device
+      for scene in reading-long selection inline-two management reading-glow reading-anger reading-locked; do
+        adb exec-out run-as com.beemind.personal cat "files/r4-native-$scene.png" > "app/build/reports/ui-device/r4-$scene.png" || true
+      done
+    fi
     grep -q 'OK (1 test)' "$output"
   done
   mkdir -p app/build/reports/ui-device
-  for scene in fallback sea bright dark portrait detail; do
+  for scene in fallback coast-0 coast-50 coast-100 sea bright dark portrait detail; do
     adb exec-out run-as com.beemind.personal cat "files/r2-native-$scene.png" > "app/build/reports/ui-device/r2-$scene.png"
     test -s "app/build/reports/ui-device/r2-$scene.png"
   done
   for scene in normal-empty normal-long-ime primary-ime expressive glow anger none reminder date clock capsule-confirmation locked; do
     adb exec-out run-as com.beemind.personal cat "files/r3-native-$scene.png" > "app/build/reports/ui-device/r3-$scene.png"
     test -s "app/build/reports/ui-device/r3-$scene.png"
+  done
+  for scene in reading-long selection inline-two management reading-glow reading-anger reading-locked; do
+    adb exec-out run-as com.beemind.personal cat "files/r4-native-$scene.png" > "app/build/reports/ui-device/r4-$scene.png"
+    test -s "app/build/reports/ui-device/r4-$scene.png"
   done
   echo '::notice title=Native editor coverage::Temporal, Threads, Editor, R3 editor/IME/capsule, wallpaper invariants and captures passed.'
   phase="cold-process reminders and real ten-minute snooze"
