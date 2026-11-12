@@ -75,13 +75,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          name="BeeMind-0.7.2-r3-build-${BEEMIND_VERSION_CODE}-${SIGNING_LABEL}"
+          name="BeeMind-0.7.3-r4-build-${BEEMIND_VERSION_CODE}-${SIGNING_LABEL}"
           cp app/build/outputs/apk/debug/app-debug.apk "dist/$name.apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "dist/$name.apk" > "dist/$name-certificate.txt"
           (cd dist && sha256sum "$name.apk" > "$name.apk.sha256")
           echo "ARTIFACT_NAME=$name" >> "$GITHUB_ENV"
           {
-            echo "### BeeMind 0.7.2-r3 / build $BEEMIND_VERSION_CODE"
+            echo "### BeeMind 0.7.3-r4 / build $BEEMIND_VERSION_CODE"
             echo "Signing: $SIGNING_LABEL"
             echo "Application ID: com.beemind.personal"
             echo 'APK signature verified; unit tests and lint passed.'

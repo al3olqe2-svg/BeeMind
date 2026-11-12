@@ -34,7 +34,7 @@ class WallpaperDeviceTest {
             assertEquals(a, repo.state.value.currentId); assertEquals(a, repo.state.value.pinnedId)
             assertEquals(80, repo.state.value.blur)
             val processed = WallpaperImages().load(repo.file(a), 80)!!
-            assertTrue(maxOf(processed.width,processed.height) <= 720)
+            assertTrue(maxOf(processed.width,processed.height) <= 1440)
             assertArrayEquals(bytes, repo.file(a).readBytes())
             repo.pin(null); repo.newSession(); assertEquals(b, repo.state.value.currentId)
             repo.pin(a); repo.remove(a); assertNull(repo.state.value.pinnedId)

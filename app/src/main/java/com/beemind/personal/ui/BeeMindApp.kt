@@ -117,7 +117,7 @@ fun BeeMindApp() {
             composable("home") { entry ->
                 val vm: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(repository) } })
                 val state by vm.state.collectAsStateWithLifecycle()
-                AtmosphericTheme { HomeScreen(state, onCreate = { openEditor(null, entry) }, onOpen = { id -> scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
+                WallpaperGlassHost(wallpaperState, wallpaperVm.repository, wallpaperVm.images) { AtmosphericTheme { HomeScreen(state, onCreate = { openEditor(null, entry) }, onOpen = { id -> scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
                         if (nav.currentBackStackEntry === entry) nav.navigate("note/$id") { launchSingleTop = true }
                     } } },
                     onResume = { draft -> scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
@@ -127,7 +127,7 @@ fun BeeMindApp() {
                     onSettings = { scope.launch { if (nav.currentBackStackEntry === entry) entry.lifecycle.withResumed {
                         if (nav.currentBackStackEntry === entry) nav.navigate("wallpapers") { launchSingleTop = true }
                     } } },
-                    wallpaper = { WallpaperBackground(wallpaperState, wallpaperVm.repository, wallpaperVm.images, Modifier.fillMaxSize()) }) }
+                    wallpaper = { WallpaperBackground(wallpaperState, wallpaperVm.repository, wallpaperVm.images, Modifier.fillMaxSize()) }) } }
             }
             composable("wallpapers") { entry ->
                 WallpaperSettingsScreen(wallpaperVm, onBack = { goBack(entry) })

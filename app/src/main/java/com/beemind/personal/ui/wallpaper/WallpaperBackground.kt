@@ -20,17 +20,19 @@ fun WallpaperBackground(state: WallpaperState, repository: WallpaperRepository, 
     modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.background(BeeDesign.atmosphere)) {
         val aspect = (maxWidth.value / maxHeight.value).takeIf { it.isFinite() } ?: .5f
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val edge = with(density) { maxOf(maxWidth, maxHeight).roundToPx() }.coerceIn(720, 1920)
         val id = state.currentId
-        val cached = id?.let { selected -> images.cachedWallpaper(selected, state.blur, aspect)?.let { selected to it } }
-        val rendered by produceState(cached, id, state.blur, aspect) {
-            kotlinx.coroutines.delay(100)
-            value = if (id == null) null else images.load(repository.file(id), state.blur, aspect)?.let { id to it }
+        val cached = id?.let { selected -> images.cachedWallpaper(selected, state.blur, aspect, edge)?.let { selected to it } }
+        val rendered by produceState(cached, id, state.blur, aspect, edge) {
+            kotlinx.coroutines.delay(120)
+            value = if (id == null) null else images.load(repository.file(id), state.blur, aspect, edge)?.let { id to it }
         }
         rendered?.let { (renderedId, bitmap) -> Image(bitmap.asImageBitmap(), null, Modifier.fillMaxSize().testTag("wallpaper_ready_$renderedId"),
             contentScale = ContentScale.Crop, filterQuality = FilterQuality.High) }
         Box(Modifier.fillMaxSize().background(BeeDesign.atmosphericOverlay))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
-            Color.Black.copy(alpha = .22f), Color.Transparent, Color.Black.copy(alpha = .36f)))))
+            Color.Black.copy(alpha = .06f), Color.Transparent, Color.Black.copy(alpha = .14f)))))
     }
 }
 

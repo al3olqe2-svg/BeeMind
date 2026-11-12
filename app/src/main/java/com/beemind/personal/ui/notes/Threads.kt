@@ -4,12 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -23,7 +24,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.beemind.personal.domain.*
-import com.beemind.personal.ui.components.expressiveHalo
 import com.beemind.personal.ui.theme.BeeDesign
 
 /** Search only the same redacted projection that can be rendered. Never query private text. */
@@ -39,10 +39,11 @@ fun ThreadsSection(vm: DetailViewModel, onOpen: (String) -> Unit, enabled: Boole
     val busy by vm.linkBusy.collectAsStateWithLifecycle()
     val error by vm.linkError.collectAsStateWithLifecycle()
     var picker by rememberSaveable { mutableStateOf(false) }
+    DisposableEffect(vm) { onDispose { vm.showThreadPicker(false) } }
     LaunchedEffect(picker) { vm.showThreadPicker(picker) }
     Column(Modifier.fillMaxWidth().testTag("threads_section"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Share, null, tint = BeeDesign.accent, modifier = Modifier.size(22.dp))
+            Icon(EditorGlyphs.link, null, tint = BeeDesign.accent, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(8.dp))
             Text("الخيوط", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).semantics { heading() })
             TextButton(onClick = { picker = true }, enabled = enabled, modifier = Modifier.testTag("add_thread")) {
@@ -55,11 +56,11 @@ fun ThreadsSection(vm: DetailViewModel, onOpen: (String) -> Unit, enabled: Boole
             ThreadContent.Error -> TextButton(onClick = vm::retryThreads) { Text("تعذر تحميل الخيوط؛ إعادة المحاولة") }
             is ThreadContent.Ready -> if (content.notes.isEmpty()) {
                 Text("خيط واحد يفتح طريقًا لفكرة أخرى", color = BeeDesign.secondary, style = MaterialTheme.typography.bodySmall)
-            } else LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            } else LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(content.notes, key = { it.note.id }) { candidate ->
-                    ThreadCard(candidate.note, Modifier.width(252.dp), enabled && candidate.note.id !in busy,
+                    ThreadCard(candidate.note, Modifier.fillMaxWidth(), enabled && candidate.note.id !in busy,
                         onOpen = { onOpen(candidate.note.id) },
-                        onRemove = { vm.setLinked(candidate.note.id, false) })
+                        onRemove = { vm.setLinked(candidate.note.id, false) }, busy = candidate.note.id in busy)
                 }
             }
         }
@@ -69,7 +70,7 @@ fun ThreadsSection(vm: DetailViewModel, onOpen: (String) -> Unit, enabled: Boole
 }
 
 @Composable
-private fun ThreadCard(note: NoteSummary, modifier: Modifier, enabled: Boolean, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun ThreadCard(note: NoteSummary, modifier: Modifier, enabled: Boolean, onOpen: () -> Unit, onRemove: () -> Unit, busy: Boolean = false) {
     Surface(modifier.border(1.dp, BeeDesign.border, BeeDesign.card), shape = BeeDesign.card, color = BeeDesign.surface) {
         Column {
             Surface(onClick = onOpen, enabled = enabled, color = BeeDesign.surface,
@@ -78,21 +79,20 @@ private fun ThreadCard(note: NoteSummary, modifier: Modifier, enabled: Boolean, 
             }
             TextButton(onClick = onRemove, enabled = enabled, modifier = Modifier.align(Alignment.End).testTag("thread_remove_${note.id}")) {
                 Icon(Icons.Default.Close, null, Modifier.size(18.dp))
-                Text("إزالة الرابط")
+                Text(if (busy) "جارٍ الحفظ…" else "إزالة الرابط")
             }
         }
     }
 }
 
 @Composable
-private fun ThreadPreview(note: NoteSummary) {
+internal fun ThreadPreview(note: NoteSummary) {
     if (note.locked) {
         Text("كبسولة مغلقة", style = MaterialTheme.typography.titleSmall)
         note.unlockAt?.let { Text(formatNoteTimestamp(it), style = MaterialTheme.typography.bodySmall, color = BeeDesign.secondary) }
     } else if (note.preview.isNotBlank()) {
-        Box(Modifier.expressiveHalo(note.expressiveTrait).padding(4.dp)) {
-            Text(note.preview, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-        }
+        Text(note.preview, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            color = BeeDesign.ink)
     }
 
 }
@@ -133,7 +133,7 @@ fun ThreadPicker(content: ThreadContent, busy: Set<String>, error: Boolean, enab
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         ThreadPreview(candidate.note)
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(if (candidate.linked) Icons.Default.Share else Icons.Default.Add, null, tint = BeeDesign.accent, modifier = Modifier.size(20.dp))
+                                            Icon(if (candidate.linked) EditorGlyphs.link else Icons.Default.Add, null, tint = BeeDesign.accent, modifier = Modifier.size(20.dp))
                                             Spacer(Modifier.width(8.dp))
                                             Text(if (candidate.note.id in busy) "جارٍ الحفظ…" else if (candidate.linked) "مرتبطة • اضغط لفك الخيط" else "ربط هذه الفكرة", style = MaterialTheme.typography.labelLarge, color = BeeDesign.accent)
                                         }
@@ -144,6 +144,28 @@ fun ThreadPicker(content: ThreadContent, busy: Set<String>, error: Boolean, enab
                     }
                 }
             }
+        }
+    }
+}
+
+/** Safe representation: locked branch never composes preview/title, including malformed inputs. */
+@Composable
+internal fun InlineThreadCard(note: NoteSummary, enabled: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val edge = when {
+        note.locked -> Brush.linearGradient(listOf(Color(0xFFCBD0D9), Color(0xFFE5E1D8)))
+        note.expressiveTrait == ExpressiveTrait.GLOW -> BeeDesign.rainbow
+        note.expressiveTrait == ExpressiveTrait.ANGER -> Brush.linearGradient(listOf(Color(0xFFCE6681), BeeDesign.editorialBorder))
+        else -> Brush.linearGradient(listOf(BeeDesign.editorialBorder, BeeDesign.editorialBorder.copy(alpha = .5f)))
+    }
+    Surface(onClick = onOpen, enabled = enabled, shape = BeeDesign.card,
+        color = BeeDesign.editorialSurface.copy(alpha = .82f),
+        border = androidx.compose.foundation.BorderStroke(.8.dp, edge),
+        modifier = modifier.fillMaxWidth().heightIn(min = 64.dp).testTag("inline_thread_${note.id}")) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) { ThreadPreview(note) }
+            Spacer(Modifier.width(12.dp))
+            Icon(if (note.locked) Icons.Outlined.Lock else EditorGlyphs.link, null,
+                Modifier.size(18.dp), tint = BeeDesign.secondary)
         }
     }
 }
