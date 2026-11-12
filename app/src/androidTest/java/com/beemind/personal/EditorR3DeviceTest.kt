@@ -36,6 +36,9 @@ class EditorR3DeviceTest {
         compose.runOnUiThread { compose.activity.enableEdgeToEdge(); vm = EditorViewModel(repo, "r3-native", null); store.put("editor", vm) }
         fun capture(name: String) {
             compose.waitForIdle()
+            instrumentation.waitForIdleSync()
+            Thread.sleep(500)
+            instrumentation.waitForIdleSync()
             val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
             File(context.filesDir, "r3-native-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()

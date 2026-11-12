@@ -37,6 +37,10 @@ class ReadingR4DeviceTest {
         val long = "أفكار تعبر الزمن. Mixed English 123 🌿\n\nسطر محفوظ كما كُتب.\n".repeat(120)
         fun capture(name: String) {
             compose.waitForIdle()
+            instrument.waitForIdleSync()
+            // Semantics can settle before the emulator's HWUI framebuffer presents its frame.
+            Thread.sleep(500)
+            instrument.waitForIdleSync()
             val bitmap = checkNotNull(instrument.uiAutomation.takeScreenshot())
             File(context.filesDir,"r4-native-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }; bitmap.recycle()
         }
@@ -58,6 +62,37 @@ class ReadingR4DeviceTest {
             } }
             compose.waitUntil(15000) { compose.onAllNodesWithTag("reading_chunk_0").fetchSemanticsNodes().isNotEmpty() }
             capture("reading-long")
+            val actions = compose.onNodeWithTag("reading_actions").fetchSemanticsNode().boundsInRoot
+            compose.onNodeWithTag("reading_list").performScrollToNode(hasTestTag("inline_thread_locked"))
+            capture("inline-two")
+            assertEquals(actions,compose.onNodeWithTag("reading_actions").fetchSemanticsNode().boundsInRoot)
+            compose.onAllNodesWithText("PRIVATE",substring=true,useUnmergedTree=true).assertCountEquals(0)
+            compose.onNodeWithTag("inline_thread_glow").performClick(); assertEquals("glow",opened)
+            compose.onNodeWithTag("manage_threads").performClick(); capture("management")
+            compose.onNodeWithTag("thread_remove_glow").performClick()
+            compose.waitUntil(15000) { compose.onAllNodesWithTag("thread_open_glow").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithText("إغلاق الخيوط").performClick()
+            compose.onAllNodesWithTag("inline_thread_glow").assertCountEquals(0)
+            for (target in listOf("glow","anger","locked")) {
+                compose.runOnIdle { id=target }
+                compose.waitUntil(15000) {
+                    if (target == "locked") compose.onAllNodesWithText("كبسولة مغلقة").fetchSemanticsNodes().isNotEmpty() &&
+                        compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isEmpty()
+                    else {
+                        val expected = if (target == "glow") "ضوء الصباح\n\nصفحة جديدة." else "أكتب كي أمضي.\nA quiet page."
+                        compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText(expected)).fetchSemanticsNodes().isNotEmpty()
+                    }
+                }
+                capture("reading-$target")
+            }
+            compose.onAllNodesWithContentDescription("تعديل الملاحظة").assertCountEquals(0)
+            compose.onAllNodesWithTag("reading_chunk_0").assertCountEquals(0)
+            compose.onAllNodesWithTag("inline_threads").assertCountEquals(0)
+            compose.onAllNodesWithText("PRIVATE",substring=true,useUnmergedTree=true).assertCountEquals(0)
+            compose.runOnIdle { id = "normal" }
+            compose.waitUntil(15000) {
+                compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText(readingChunks(long).first())).fetchSemanticsNodes().isNotEmpty()
+            }
             val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
             compose.onNodeWithTag("reading_chunk_0").performSemanticsAction(
                 androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
@@ -86,40 +121,6 @@ class ReadingR4DeviceTest {
                 val copied = clipboard.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
                 assertTrue("Selected visible text must reach Android Copy", copied.isNotBlank() && long.contains(copied))
             }
-            compose.onNodeWithTag("reading_chunk_0").performTouchInput { click(word) }
-            // Keep screenshots about reading; Android 13's clipboard preview is a separate
-            // system window and can otherwise cover the final linked card for several seconds.
-            automation.windows.mapNotNull { it.root }.flatMap {
-                it.findAccessibilityNodeInfosByViewId("com.android.systemui:id/dismiss_button")
-            }.firstOrNull()?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
-            automation.waitForIdle(100, 3000)
-            val actions = compose.onNodeWithTag("reading_actions").fetchSemanticsNode().boundsInRoot
-            compose.onNodeWithTag("reading_list").performScrollToNode(hasTestTag("inline_thread_locked"))
-            capture("inline-two")
-            assertEquals(actions,compose.onNodeWithTag("reading_actions").fetchSemanticsNode().boundsInRoot)
-            compose.onAllNodesWithText("PRIVATE",substring=true,useUnmergedTree=true).assertCountEquals(0)
-            compose.onNodeWithTag("inline_thread_glow").performClick(); assertEquals("glow",opened)
-            compose.onNodeWithTag("manage_threads").performClick(); capture("management")
-            compose.onNodeWithTag("thread_remove_glow").performClick()
-            compose.waitUntil(15000) { compose.onAllNodesWithTag("thread_open_glow").fetchSemanticsNodes().isEmpty() }
-            compose.onNodeWithText("إغلاق الخيوط").performClick()
-            compose.onAllNodesWithTag("inline_thread_glow").assertCountEquals(0)
-            for (target in listOf("glow","anger","locked")) {
-                compose.runOnIdle { id=target }
-                compose.waitUntil(15000) {
-                    if (target == "locked") compose.onAllNodesWithText("كبسولة مغلقة").fetchSemanticsNodes().isNotEmpty() &&
-                        compose.onAllNodesWithContentDescription("تعديل الملاحظة").fetchSemanticsNodes().isEmpty()
-                    else {
-                        val expected = if (target == "glow") "ضوء الصباح\n\nصفحة جديدة." else "أكتب كي أمضي.\nA quiet page."
-                        compose.onAllNodes(hasTestTag("reading_chunk_0") and hasText(expected)).fetchSemanticsNodes().isNotEmpty()
-                    }
-                }
-                capture("reading-$target")
-            }
-            compose.onAllNodesWithContentDescription("تعديل الملاحظة").assertCountEquals(0)
-            compose.onAllNodesWithTag("reading_chunk_0").assertCountEquals(0)
-            compose.onAllNodesWithTag("inline_threads").assertCountEquals(0)
-            compose.onAllNodesWithText("PRIVATE",substring=true,useUnmergedTree=true).assertCountEquals(0)
             assertEquals(long,runBlocking { repo.getNote("normal")!!.body })
         } finally { compose.runOnIdle { store.clear() }; db.close() }
     }

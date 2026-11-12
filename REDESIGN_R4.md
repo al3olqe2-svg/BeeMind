@@ -183,3 +183,14 @@ native fixture's IME-named captures could precede IME arrival; the final fixture
 waits for actual insets and asserts the tool target is displayed. Final native
 capture artifacts are linked from PR #9. Physical TalkBack, OEM keyboard variations
 and low-end scrolling are explicitly not claimed as performed.
+
+
+### Native validation of production behavior
+Workflow #138, source `1a1fdbf10a9f81f9ddb78cc9eea538492a3f7ed2`, completed
+successfully: build/139 unit executions/lint, native API 29 and 34, real clipboard Copy,
+IME, locked privacy, wallpaper processing and cold-process alarms/actual ten-minute
+Snooze/Done. Its APK is versionCode 138. Native artifacts were downloaded and opened.
+Review identified that some rapid reading captures preceded HWUI framebuffer
+presentation, and clipboard overlays covered later scenes. The capture fixture now
+waits for presentation and runs Copy after article/footer/cover captures; no production
+behavior changed for this evidence correction. Final matching run/artifacts are in PR #9.
