@@ -83,6 +83,7 @@ class WallpaperExperienceTest {
         waitTag("wallpaper_ready_$pinned")
         compose.waitForIdle(); screenshot("settings")
         compose.onNodeWithTag("wallpaper_settings").performScrollToNode(hasTestTag("wallpaper_$pinned"))
+        waitTag("wallpaper_thumbnail_$pinned")
         compose.onNodeWithText("مثبتة · خلفيتك الدائمة").assertIsDisplayed()
         screenshot("settings-pinned")
         compose.onNodeWithText("إلغاء التثبيت").performClick()

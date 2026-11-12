@@ -38,7 +38,7 @@ fun WallpaperBackground(state: WallpaperState, repository: WallpaperRepository, 
 fun WallpaperThumbnail(id: String, repository: WallpaperRepository, images: WallpaperImages, modifier: Modifier) {
     val bitmap by produceState<Bitmap?>(null, id) { value = images.load(repository.file(id)) }
     Box(modifier.background(BeeDesign.surface)) {
-        bitmap?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+        bitmap?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize().testTag("wallpaper_thumbnail_$id"), contentScale = ContentScale.Crop,
             filterQuality = FilterQuality.High) }
     }
 }
