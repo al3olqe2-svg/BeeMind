@@ -56,6 +56,21 @@ class ReadingR4DeviceTest {
             } }
             compose.waitUntil(15000) { compose.onAllNodesWithTag("reading_chunk_0").fetchSemanticsNodes().isNotEmpty() }
             capture("reading-long")
+            val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            compose.onNodeWithTag("reading_chunk_0").performSemanticsAction(
+                androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val word = layouts.single().getBoundingBox(long.indexOf("Mixed")).center
+            compose.onNodeWithTag("reading_chunk_0").performTouchInput { longClick(word) }
+            instrument.waitForIdleSync()
+            capture("selection")
+            androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText(
+                context.getString(android.R.string.copy))).perform(androidx.test.espresso.action.ViewActions.click())
+            compose.runOnIdle {
+                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                val copied = clipboard.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
+                assertTrue("Selected visible text must reach Android Copy", copied.isNotBlank() && long.contains(copied))
+            }
+            compose.onNodeWithTag("reading_chunk_0").performTouchInput { click(word) }
             val actions = compose.onNodeWithTag("reading_actions").fetchSemanticsNode().boundsInRoot
             compose.onNodeWithTag("reading_list").performScrollToNode(hasTestTag("inline_thread_locked"))
             capture("inline-two")

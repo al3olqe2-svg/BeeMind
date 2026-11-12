@@ -39,7 +39,7 @@ else
     adb exec-out run-as com.beemind.personal cat "files/r3-native-$scene.png" > "app/build/reports/ui-device/r3-$scene.png"
     test -s "app/build/reports/ui-device/r3-$scene.png"
   done
-  for scene in reading-long inline-two management reading-glow reading-anger reading-locked; do
+  for scene in reading-long selection inline-two management reading-glow reading-anger reading-locked; do
     adb exec-out run-as com.beemind.personal cat "files/r4-native-$scene.png" > "app/build/reports/ui-device/r4-$scene.png"
     test -s "app/build/reports/ui-device/r4-$scene.png"
   done

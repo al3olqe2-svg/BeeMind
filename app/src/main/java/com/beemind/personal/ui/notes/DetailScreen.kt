@@ -145,9 +145,9 @@ private fun ReadingArticle(body: String, vm: DetailViewModel, readingState: Lazy
     val chunks = remember(body) { readingChunks(body) }
     val linked by vm.linkedNotes.collectAsStateWithLifecycle()
     val notes = (linked as? ThreadContent.Ready)?.notes.orEmpty()
-    // A returning entry may be anchored in its footer. Do not clamp that saved anchor
+    // A returning entry may be anchored near its footer. Do not clamp that saved anchor
     // against a temporarily shorter list while Room refreshes safe link projections.
-    if (linked is ThreadContent.Loading && readingState.firstVisibleItemIndex >= chunks.size && chunks.isNotEmpty()) {
+    if (linked is ThreadContent.Loading && (readingState.firstVisibleItemIndex > 0 || readingState.firstVisibleItemScrollOffset > 0)) {
         Box(modifier) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         return
     }
